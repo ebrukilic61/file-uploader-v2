@@ -47,7 +47,6 @@ File-Uploader/
 └── go.sum
 ```
 # Kurulum
-<<<<<<< HEAD
 
 ## Gereksinimler
 - Go 1.21+
