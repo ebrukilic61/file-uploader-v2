@@ -1,0 +1,205 @@
+definitions:
+  models.CancelUploadRequestDTO:
+    properties:
+      upload_id:
+        type: string
+    type: object
+  models.CancelUploadResponse:
+    properties:
+      message:
+        description: opsiyonel açıklama
+        type: string
+      status:
+        description: 'örn: "ok" veya "failed"'
+        type: string
+    type: object
+  models.CompleteUploadResponse:
+    properties:
+      filename:
+        type: string
+      message:
+        type: string
+      status:
+        type: string
+    type: object
+  models.ErrorResponse:
+    properties:
+      error:
+        type: string
+      missing_chunks:
+        items:
+          type: integer
+        type: array
+    type: object
+  models.UploadChunkResponse:
+    properties:
+      chunk_index:
+        type: integer
+      filename:
+        type: string
+      message:
+        type: string
+      status:
+        type: string
+      upload_id:
+        type: string
+    type: object
+  models.UploadStatusResponse:
+    properties:
+      filename:
+        type: string
+      upload_id:
+        type: string
+      uploaded_chunks:
+        items:
+          type: integer
+        type: array
+    type: object
+info:
+  contact: {}
+paths:
+  /upload/cancel:
+    post:
+      consumes:
+      - application/json
+      description: Cancels an ongoing upload
+      parameters:
+      - description: Cancel upload request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CancelUploadRequestDTO'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.CancelUploadResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Cancel Upload
+      tags:
+      - Upload
+  /upload/chunk:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Uploads a single chunk of a file
+      parameters:
+      - description: Upload ID
+        in: formData
+        name: upload_id
+        required: true
+        type: string
+      - description: Chunk index
+        in: formData
+        name: chunk_index
+        required: true
+        type: string
+      - description: File name
+        in: formData
+        name: filename
+        required: true
+        type: string
+      - description: Chunk hash
+        in: formData
+        name: chunk_hash
+        type: string
+      - description: Chunk file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UploadChunkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Upload Chunk
+      tags:
+      - Upload
+  /upload/complete:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Marks the upload as complete and merges chunks
+      parameters:
+      - description: Upload ID
+        in: formData
+        name: upload_id
+        required: true
+        type: string
+      - description: Total chunks
+        in: formData
+        name: total_chunks
+        required: true
+        type: integer
+      - description: File name
+        in: formData
+        name: filename
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.CompleteUploadResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Complete Upload
+      tags:
+      - Upload
+  /upload/status:
+    get:
+      consumes:
+      - application/json
+      description: Returns the list of already uploaded chunks for a given upload
+        session
+      parameters:
+      - description: Upload ID
+        in: query
+        name: upload_id
+        required: true
+        type: string
+      - description: File name
+        in: query
+        name: filename
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UploadStatusResponse'
+        "400":
+          description: Missing parameter
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Get Upload Status
+      tags:
+      - Upload
+swagger: "2.0"
