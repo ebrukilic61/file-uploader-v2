@@ -67,9 +67,6 @@ brew install ffmpeg
 ```
 sudo apt update && sudo apt install ffmpeg
 ```
-=======
->>>>>>> acde494ad40329b8c0d1989b584c362ce7ec4ccc
-
 ## Gereksinimler
 - Go 1.21+
 - FFmpeg
