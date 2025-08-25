@@ -14,6 +14,7 @@ type FileUploadRepository interface {
 	MergeChunks(uploadID, filename string, totalChunks int) error
 	CleanupTempFiles(uploadID string) error
 	UploadsDir() string
+	TempDir() string
 }
 
 type StorageStrategy interface {

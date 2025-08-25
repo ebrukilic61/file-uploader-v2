@@ -31,21 +31,29 @@ func NewUploadService(repo repositories.FileUploadRepository, storage repositori
 	return &uploadService{
 		repo:    repo,
 		storage: storage,
+		mu:      sync.Mutex{}, //sonradan ekledim
 	}
 }
 
 func (s *uploadService) GetUploadStatus(req *dto.UploadStatusRequestDTO) (*dto.UploadStatusResponse, error) {
-	// Repository'den merge edilen chunk'ları al
-	uploadedChunks, exists := s.repo.GetUploadedChunks(req.UploadID, req.Filename) // exists bool, err değil
+	// Repository'den merge edilen chunk sayısını al
+	mergedChunkCount, exists := s.repo.GetUploadedChunks(req.UploadID, req.Filename)
+
+	var uploadedChunks int
+	var uploadedStatus string
+	if exists && mergedChunkCount > 0 {
+		uploadedChunks = mergedChunkCount
+		uploadedStatus = "completed"
+	} else {
+		uploadedChunks = 0
+		uploadedStatus = "failed"
+	}
 
 	response := &dto.UploadStatusResponse{
 		UploadID:       req.UploadID,
 		Filename:       req.Filename,
 		UploadedChunks: uploadedChunks,
-	}
-
-	if !exists { // err != nil değil, !exists
-		response.UploadedChunks = 0
+		Status:         uploadedStatus,
 	}
 
 	return response, nil

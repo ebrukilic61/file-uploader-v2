@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 // Atomik dosya kopyalama
@@ -61,4 +62,9 @@ func ValidateFileHash(filePath, expectedHash string) error {
 	}
 
 	return nil
+}
+
+func MakeKey(uploadID, filename string) string {
+	cleanUploadID := strings.TrimPrefix(uploadID, "upload-")
+	return cleanUploadID + "_" + filename
 }

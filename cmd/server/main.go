@@ -20,6 +20,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/swagger" // fiber için swagger handler
+	"github.com/robfig/cron/v3"
 )
 
 func main() {
@@ -73,6 +74,15 @@ func main() {
 func setupUploadRoutes(app *fiber.App, cfg *config.Config) {
 	fileRepo := repositories.NewFileUploadRepository(cfg.Upload.TempDir, cfg.Upload.UploadsDir)
 	//localStorage := &storage.LocalStorage{BasePath: "uploads"}
+	cleanupUC := usecases.NewCleanupService(fileRepo)
+	c := cron.New(cron.WithSeconds())
+
+	c.AddFunc("0 */5 * * * *", func() {
+		if err := cleanupUC.CleanupOldTempFiles(24 * time.Hour); err != nil {
+			log.Printf("Error cleaning up old temp files: %v", err)
+		}
+	})
+	c.Start() // cron job'u başlatır
 
 	//uploadService := usecases.NewUploadService(fileRepo, localStorage)
 	uploadService := usecases.NewUploadService(fileRepo, nil)

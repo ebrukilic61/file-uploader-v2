@@ -31,6 +31,7 @@ type UploadStatusResponse struct {
 	UploadID       string `json:"upload_id"`
 	Filename       string `json:"filename"`
 	UploadedChunks int    `json:"uploaded_chunks"`
+	Status         string `json:"status,omitempty"` // "completed", "failed" gibi (opsiyonel)
 }
 
 type UploadChunkResponse struct {
