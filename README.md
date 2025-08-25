@@ -1,6 +1,6 @@
 # File Uploader
 
-Bu proje, büyük dosyaları chunklar halinde upload etmek için tasarlanmış bir Go uygulamasıdır. Clean Architecture pattern'i kullanılarak geliştirilmiştir.
+Bu proje, büyük dosyaları chunklar halinde upload etmek için tasarlanmış bir Go backend uygulamasıdır. Clean Architecture pattern'i kullanılarak geliştirilmiştir.
 
 ## Özellikler
 
