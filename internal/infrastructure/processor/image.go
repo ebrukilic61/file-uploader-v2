@@ -1,13 +1,20 @@
 package processor
 
 import (
+	"fmt"
 	"path/filepath"
 	"strconv"
 
 	"github.com/disintegration/imaging"
 )
 
-func ResizeImage(inputPath, outputPath string, width, height int) (string, error) {
+type ResizeOption struct {
+	Width   int
+	Height  int
+	Quality int // 1-100
+}
+
+func ResizeImage(inputPath, outputPath string, options ResizeOption) (string, error) { // tek bir image için
 	// Görüntüyü dosyadan aç
 	img, err := imaging.Open(inputPath)
 	if err != nil {
@@ -15,16 +22,61 @@ func ResizeImage(inputPath, outputPath string, width, height int) (string, error
 	}
 
 	// Görüntüyü yeniden boyutlandırmak için:
-	resizedImg := imaging.Resize(img, width, height, imaging.Lanczos)
+	resizedImg := imaging.Fit(img, options.Width, options.Height, imaging.Lanczos) //scaling için -> oranı korur
 
 	base := filepath.Base(inputPath)
-	outputPath = filepath.Join(filepath.Dir(outputPath), "resized_"+strconv.Itoa(width)+"_"+strconv.Itoa(height)+"_"+base)
+	outputPath = filepath.Join(filepath.Dir(outputPath), "resized_"+strconv.Itoa(options.Width)+"_"+strconv.Itoa(options.Height)+"_"+base)
 
 	// kaydetmek için:
-	err = imaging.Save(resizedImg, outputPath)
+	err = imaging.Save(resizedImg, outputPath, imaging.JPEGQuality(options.Quality))
 	if err != nil {
 		return "", err
 	}
 
 	return outputPath, nil
 }
+
+func ResizeAndSaveMultiple(inputPath, outputDir string, options []ResizeOption) ([]string, error) {
+	img, err := imaging.Open(inputPath)
+	if err != nil {
+		return nil, fmt.Errorf("resim açılamadı: %w", err)
+	}
+
+	var savedFiles []string
+	base := filepath.Base(inputPath)
+
+	for _, opt := range options {
+		// Oran koruyarak resize
+		resizedImg := imaging.Fit(img, opt.Width, opt.Height, imaging.Lanczos)
+
+		outputPath := filepath.Join(outputDir,
+			fmt.Sprintf("resized_%dx%d_%s", opt.Width, opt.Height, base),
+		)
+
+		// JPEG kalite ayarı ile kaydet
+		err := imaging.Save(resizedImg, outputPath, imaging.JPEGQuality(opt.Quality))
+		if err != nil {
+			return savedFiles, fmt.Errorf("dosya kaydedilemedi: %w", err)
+		}
+
+		savedFiles = append(savedFiles, outputPath)
+	}
+
+	return savedFiles, nil
+}
+
+// Örnek Kullanım:
+/*
+options := []processor.ResizeOption{
+	{Width: 1000, Height: 1000, Quality: 100},
+	{Width: 800, Height: 800, Quality: 90},
+	{Width: 200, Height: 200, Quality: 80},
+}
+
+savedFiles, err := processor.ResizeAndSaveMultiple("input.jpg", "output/", options)
+if err != nil {
+	fmt.Println("Hata:", err)
+} else {
+	fmt.Println("Oluşturulan dosyalar:", savedFiles)
+}
+*/
