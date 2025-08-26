@@ -71,10 +71,10 @@ func main() {
 	server := flag.String("server", "http://localhost:3000/api/v1", "Server base URL")
 	filePath := flag.String(
 		"file",
-		"C:\\Users\\PC_2250__\\Desktop\\veri_4gb\\final_data_new.json",
+		"C:\\Users\\PC_2250__\\Desktop\\veri_4gb\\arxiv-metadata-oai-snapshot.json",
 		"Yüklenecek dosyanın yolu",
 	)
-	chunkSize := flag.Int64("chunk-size", 524288, "Chunk size in bytes (default 512KB)")
+	chunkSize := flag.Int64("chunk-size", 10*1024*1024, "Chunk size in bytes (default 10MB)")
 	uploadID := flag.String("upload-id", "", "Upload session ID")
 	flag.Parse()
 
