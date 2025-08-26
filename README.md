@@ -103,7 +103,7 @@ GET /api/v1/upload/status?upload_id={upload_id}&filename={filename}
 {
   "upload_id": "test-123",
   "filename": "test.txt",
-  "uploaded_chunks": [1, 2, 3]
+  "uploaded_chunks": len(uploaded_chunks[])
 }
 ```
 
