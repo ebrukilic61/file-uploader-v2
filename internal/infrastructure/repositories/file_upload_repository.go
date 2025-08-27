@@ -1,7 +1,7 @@
 package repositories
 
 import (
-	"file-uploader/pkg/fileutils"
+	fl "file-uploader/pkg/file"
 	"fmt"
 	"io"
 	"log"
@@ -115,7 +115,7 @@ func (r *fileUploadRepository) SaveChunk(uploadID, filename string, chunkIndex i
 
 	*/
 	if err := os.Rename(tmpPath, finalPath); err != nil {
-		if copyErr := fileutils.CopyFile(tmpPath, finalPath); copyErr != nil {
+		if copyErr := fl.CopyFile(tmpPath, finalPath); copyErr != nil {
 			//		os.Remove(tmpPath)
 			return fmt.Errorf("chunk yazılamadı: %w", copyErr)
 		}
@@ -141,7 +141,7 @@ func (r *fileUploadRepository) SetUploadedChunks(uploadID, filename string, merg
 		fmt.Printf("DEBUG: mergedChunks map oluşturuldu\n")
 	}
 
-	key := fileutils.MakeKey(uploadID, filename)
+	key := fl.MakeKey(uploadID, filename)
 	r.mergedChunks[key] = merged
 
 	fmt.Printf("DEBUG: SET - Key: %s, Chunk sayısı: %d\n", key, merged)
@@ -151,7 +151,7 @@ func (r *fileUploadRepository) GetUploadedChunks(uploadID, filename string) (int
 	r.chunkMutex.RLock()
 	defer r.chunkMutex.RUnlock()
 
-	key := fileutils.MakeKey(uploadID, filename)
+	key := fl.MakeKey(uploadID, filename)
 	fmt.Printf("DEBUG: GET - Looking for key: %s\n", key)
 
 	if r.mergedChunks == nil {
@@ -223,7 +223,7 @@ func (r *fileUploadRepository) MergeChunks(uploadID, filename string, totalChunk
 	defer r.fileMutex.Unlock()
 
 	saveDir := filepath.Join(r.tempDir, uploadID)
-	finalFileName := fileutils.MakeKey(uploadID, filename)
+	finalFileName := fl.MakeKey(uploadID, filename)
 	finalPath := filepath.Join(r.uploadsDir, finalFileName)
 
 	fmt.Printf("DEBUG: Merging to %s\n", finalPath) // Debug log

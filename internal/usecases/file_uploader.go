@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"mime/multipart"
+	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -13,7 +14,7 @@ import (
 	"file-uploader/internal/infrastructure/queue"
 	consts "file-uploader/pkg/constants"
 	"file-uploader/pkg/errors"
-	"file-uploader/pkg/fileutils"
+	fl "file-uploader/pkg/file"
 )
 
 type UploadService interface {
@@ -32,7 +33,13 @@ type uploadService struct {
 }
 
 func NewUploadService(repo repositories.FileUploadRepository, storage repositories.StorageStrategy) UploadService {
-	workerPool := queue.NewWorkerPool(5, repo) // 5 worker ile başlatalım
+	workerCount := 5
+	if val, ok := os.LookupEnv("WORKER_POOL_SIZE"); ok {
+		if wc, err := strconv.Atoi(val); err == nil {
+			workerCount = wc
+		}
+	}
+	workerPool := queue.NewWorkerPool(workerCount, repo) // 5 worker ile başlatalım
 	return &uploadService{
 		repo:       repo,
 		storage:    storage,
@@ -106,7 +113,7 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 		// Hash doğrulama için dosya yolunu oluştur
 		chunkPath := filepath.Join("temp_uploads", req.UploadID, fmt.Sprintf("%s.part%d", safeFilename, idx))
 
-		if err := fileutils.ValidateFileHash(chunkPath, req.ChunkHash); err != nil {
+		if err := fl.ValidateFileHash(chunkPath, req.ChunkHash); err != nil {
 			s.repo.CleanupTempFiles(req.UploadID)
 			log.Printf("WARN: Temp siliniyor: %v", err)
 			return nil, err
