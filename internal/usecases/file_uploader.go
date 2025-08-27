@@ -11,6 +11,7 @@ import (
 	"file-uploader/internal/domain/dto"
 	"file-uploader/internal/domain/repositories"
 	"file-uploader/internal/infrastructure/queue"
+	"file-uploader/pkg/errors"
 	"file-uploader/pkg/fileutils"
 )
 
@@ -69,7 +70,7 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 	// Chunk index doğrulama
 	idx, err := strconv.Atoi(req.ChunkIndex)
 	if err != nil || idx <= 0 {
-		return nil, fmt.Errorf("geçersiz chunk_index")
+		return nil, errors.ErrInvalidChunk(err)
 	}
 
 	// Idempotent kontrol
@@ -86,7 +87,7 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 	// Dosyayı aç
 	file, err := fileHeader.Open()
 	if err != nil {
-		return nil, fmt.Errorf("dosya açılamadı: %w", err)
+		return nil, errors.ErrFileCantOpen(err)
 	}
 	//defer file.Close()
 
@@ -95,10 +96,9 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 		// Geçici olarak kaydet ve hash doğrula
 		tempSaveErr := s.repo.SaveChunk(req.UploadID, safeFilename, idx, file)
 		if tempSaveErr != nil {
-			log.Printf("WARN: Temp siliniyor: %v", tempSaveErr)
 			// Temp cleanup (isteğe bağlı)
 			s.repo.CleanupTempFiles(req.UploadID)
-			return nil, tempSaveErr
+			return nil, errors.ErrTmpFile(tempSaveErr)
 		}
 		file.Close() // Dosyayı kapat, çünkü SaveChunk içinde açılmıştı
 
@@ -120,9 +120,8 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 	} else {
 		// Hash doğrulama yoksa direkt kaydet
 		if err := s.repo.SaveChunk(req.UploadID, safeFilename, idx, file); err != nil {
-			log.Printf("WARN: Temp dosyalar temizlenemedi: %v", err)
 			s.repo.CleanupTempFiles(req.UploadID)
-			return nil, err
+			return nil, errors.ErrTmpFile(err)
 		}
 	}
 
@@ -161,22 +160,6 @@ func (s *uploadService) CompleteUpload(req *dto.CompleteUploadRequestDTO) (*dto.
 
 	s.workerPool.AddJob(mergeJob)
 
-	/*
-		err := s.repo.MergeChunks(req.UploadID, safeFilename, req.TotalChunks)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := s.repo.CleanupTempFiles(req.UploadID); err != nil {
-			slog.Warn("Temp dosyası temizlenemedi", "error", err)
-		}
-
-		return &dto.CompleteUploadResponse{
-			Status:   "ok",
-			Message:  "Chunked dosyalar başarıyla birleştirildi",
-			Filename: req.Filename,
-		}, nil
-	*/
 	return &dto.CompleteUploadResponse{
 		Status:   "queued",
 		Message:  "Chunked dosyalar başarıyla birleştirildi",
@@ -196,16 +179,6 @@ func (s *uploadService) CancelUpload(req *dto.CancelUploadRequestDTO) (*dto.Canc
 
 	s.workerPool.AddJob(cleanupJob)
 
-	/*
-		if err := s.repo.CleanupTempFiles(req.UploadID); err != nil {
-			slog.Warn("Geçici dosyalar temizlenemedi (CancelUpload)", "error", err)
-		}
-
-		return &dto.CancelUploadResponse{
-			Status:  "ok",
-			Message: "Upload iptal edildi",
-		}, nil
-	*/
 	return &dto.CancelUploadResponse{
 		Status:  "queued",
 		Message: "Upload iptal edildi",

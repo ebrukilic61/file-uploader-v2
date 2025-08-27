@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"file-uploader/internal/domain/repositories"
+	"file-uploader/pkg/errors"
 	"log"
 	"os"
 	"path/filepath"
@@ -40,15 +41,15 @@ func (s *cleanupService) CleanupOldTempFiles(maxAge time.Duration) error {
 			dirPath := filepath.Join(tempDir, entry.Name())
 			info, err := os.Stat(dirPath)
 			if err != nil {
-				log.Printf("Cannot stat %s: %v", dirPath, err)
-				continue
+				return errors.ErrCannotStat(err)
 			}
 
 			if now.Sub(info.ModTime()) > maxAge {
 				if err := os.RemoveAll(dirPath); err != nil {
-					log.Printf("Cannot remove %s: %v", dirPath, err)
+					return errors.ErrCannotRemove(err)
 				} else {
-					log.Printf("Removed old temp folder: %s", dirPath)
+					log.Printf("Removed old temp folder: %s", dirPath) //* BUARAYA RESPONSE GELEBİLİR SUCCESS İÇİN
+					return nil
 				}
 			}
 		}

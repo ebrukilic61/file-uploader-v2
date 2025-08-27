@@ -1,0 +1,10 @@
+{
+  "not_found": "Resource not found",
+  "internal_error": "Internal server error",
+  "chunk_not_open": "Chunk cannot open",
+  "chunk_not_save": "Chunk cannot be saved",
+  "tmp_file_error": "Temporary file error",
+  "file_cant_open": "File cannot be opened",
+  "invalid_chunk": "Invalid chunk",
+  "cannot_stat": "Cannot read directory file"
+}

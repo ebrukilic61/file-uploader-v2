@@ -1,0 +1,11 @@
+{
+  "not_found": "Kaynak bulunamadı",
+  "internal_error": "Sunucu hatası",
+  "chunk_not_open": "Chunk açılamadı",
+  "chunk_not_save": "Chunk kaydedilemedi",
+  "tmp_file_error": "Temp dosya hatası",
+  "file_cant_open": "Dosya açılamadı",
+  "invalid_chunk": "Geçersiz chunk",
+  "cannot_stat": "Dizin dosyası okunamadı",
+  "cannot_remove": "Dosya kaldırılamadı"
+}
