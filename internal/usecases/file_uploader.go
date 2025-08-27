@@ -11,6 +11,7 @@ import (
 	"file-uploader/internal/domain/dto"
 	"file-uploader/internal/domain/repositories"
 	"file-uploader/internal/infrastructure/queue"
+	consts "file-uploader/pkg/constants"
 	"file-uploader/pkg/errors"
 	"file-uploader/pkg/fileutils"
 )
@@ -48,10 +49,10 @@ func (s *uploadService) GetUploadStatus(req *dto.UploadStatusRequestDTO) (*dto.U
 	var uploadedStatus string
 	if exists && mergedChunkCount > 0 {
 		uploadedChunks = mergedChunkCount
-		uploadedStatus = "completed"
+		uploadedStatus = consts.StatusCompleted
 	} else {
 		uploadedChunks = 0
-		uploadedStatus = "failed"
+		uploadedStatus = consts.StatusFailed
 	}
 
 	response := &dto.UploadStatusResponse{
@@ -76,7 +77,7 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 	// Idempotent kontrol
 	if s.repo.ChunkExists(req.UploadID, safeFilename, idx) {
 		return &dto.UploadChunkResponse{
-			Status:     "ok",
+			Status:     consts.StatusOK,
 			UploadID:   req.UploadID,
 			ChunkIndex: idx,
 			Filename:   safeFilename,
@@ -112,7 +113,7 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 		}
 
 		return &dto.UploadChunkResponse{
-			Status:     "ok",
+			Status:     consts.StatusOK,
 			UploadID:   req.UploadID,
 			ChunkIndex: idx,
 			Filename:   safeFilename,
@@ -136,7 +137,7 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 	s.workerPool.AddJob(chunkJob)
 
 	return &dto.UploadChunkResponse{
-		Status:     "queued",
+		Status:     consts.StatusQueued,
 		UploadID:   req.UploadID,
 		ChunkIndex: idx,
 		Filename:   safeFilename,
@@ -161,7 +162,7 @@ func (s *uploadService) CompleteUpload(req *dto.CompleteUploadRequestDTO) (*dto.
 	s.workerPool.AddJob(mergeJob)
 
 	return &dto.CompleteUploadResponse{
-		Status:   "queued",
+		Status:   consts.StatusQueued,
 		Message:  "Chunked dosyalar başarıyla birleştirildi",
 		Filename: req.Filename,
 	}, nil
@@ -180,7 +181,7 @@ func (s *uploadService) CancelUpload(req *dto.CancelUploadRequestDTO) (*dto.Canc
 	s.workerPool.AddJob(cleanupJob)
 
 	return &dto.CancelUploadResponse{
-		Status:  "queued",
+		Status:  consts.StatusQueued,
 		Message: "Upload iptal edildi",
 	}, nil
 }

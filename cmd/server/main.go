@@ -12,6 +12,7 @@ import (
 	_ "file-uploader/docs"
 
 	"file-uploader/pkg/config"
+	consts "file-uploader/pkg/constants"
 
 	"file-uploader/internal/delivery/http/routers"
 
@@ -40,7 +41,7 @@ func main() {
 
 	// server ayakta mı değil mi kontrolü:
 	app.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"status": "ok"})
+		return c.JSON(fiber.Map{"status": consts.StatusOK})
 	})
 
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)

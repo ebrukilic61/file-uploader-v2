@@ -1,5 +1,6 @@
 package main
 
+/*
 import (
 	"fmt"
 	"log"
@@ -31,3 +32,4 @@ func main() {
 	}
 	fmt.Printf("HTTP %d Response: %+v\n", status, response)
 }
+*/

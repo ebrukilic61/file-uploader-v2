@@ -90,8 +90,8 @@ func (w *Worker) processSaveChunk(job Job) error {
 	defer job.File.Close()
 
 	if err := w.Repo.SaveChunk(job.UploadID, job.Filename, job.ChunkIndex, job.File); err != nil {
-		log.Printf("failed to save chunk: %w", err)
-		w.Repo.CleanupTempFiles(job.UploadID) // Hata durumunda temp dosyaları temizle
+		log.Printf("failed to save chunk: %w", err) //! BU HATALAR DA ERROR HANDLİNGE EKLENMELİ!!!!
+		w.Repo.CleanupTempFiles(job.UploadID)       // Hata durumunda temp dosyaları temizle
 		return err
 	}
 	return nil
