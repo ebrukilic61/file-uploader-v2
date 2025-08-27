@@ -11,7 +11,7 @@ import (
 	"file-uploader/internal/domain/dto"
 	"file-uploader/internal/domain/repositories"
 	"file-uploader/internal/infrastructure/queue"
-	"file-uploader/internal/pkg/fileutils"
+	"file-uploader/pkg/fileutils"
 )
 
 type UploadService interface {

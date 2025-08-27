@@ -19,11 +19,31 @@ func NewInMemoryMediaRepository() *InMemoryMediaRepository {
 	}
 }
 
-func (r *InMemoryMediaRepository) RegisterMedia(media *dto.Media) error {
+func (r *InMemoryMediaRepository) Create(media *dto.Media) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.data[media.MediaID] = media
 	return nil
+}
+
+func (r *InMemoryMediaRepository) ListMedia(filter dto.MediaFilter) ([]dto.Media, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	result := make([]dto.Media, 0)
+	for _, media := range r.data {
+		// Tip filtresi varsa
+		if filter.Type != "" && media.FileType != filter.Type {
+			continue
+		}
+		// Kategori filtresi varsa
+		if filter.Category != "" && media.Category != filter.Category {
+			continue
+		}
+		result = append(result, *media)
+	}
+
+	return result, nil
 }
 
 func (r *InMemoryMediaRepository) GetByID(mediaID string) (*dto.Media, error) {

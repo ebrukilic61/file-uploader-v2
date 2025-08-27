@@ -9,6 +9,7 @@ type Media struct {
 	FileSize  int64     `json:"file_size"`
 	FilePath  string    `json:"file_path"`
 	Metadata  Metadata  `json:"metadata,omitempty"`
+	Category  string    `json:"category,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -21,6 +22,11 @@ type Metadata struct {
 	Size     int64  `json:"size,omitempty"`     // byte cinsinden
 }
 
+type MediaFilter struct {
+	Type     string // FileType ile eşleşir ("image", "video")
+	Category string // Media.Category ile eşleşir
+}
+
 type MediaRegisterRequestDTO struct {
 	Filename string `json:"filename"`
 	FileType string `json:"file_type"`
@@ -31,4 +37,7 @@ type MediaRegisterRequestDTO struct {
 type MediaResponseDTO struct {
 	MediaID  string `json:"id"`
 	Filename string `json:"file_name"`
+	FileType string `json:"file_type"`
+	FileSize int64  `json:"file_size"`
+	Category string `json:"category,omitempty"`
 }

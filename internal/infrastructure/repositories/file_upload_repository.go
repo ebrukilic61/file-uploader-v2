@@ -1,7 +1,7 @@
 package repositories
 
 import (
-	"file-uploader/internal/pkg/fileutils"
+	"file-uploader/pkg/fileutils"
 	"fmt"
 	"io"
 	"log"
