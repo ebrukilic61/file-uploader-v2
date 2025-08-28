@@ -17,7 +17,7 @@ type FileUploadRepository interface {
 	TempDir() string
 }
 
-type StorageStrategy interface {
+type StorageStrategy interface { //! bu uploaddan ayrılabilir!!!
 	Upload(file multipart.File, metadata map[string]string) (string, error)
 	Download(fileID string) (multipart.File, error)
 	Delete(fileID string) error

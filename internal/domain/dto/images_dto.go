@@ -22,8 +22,8 @@ type MediaVariant struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
-type MediaSize struct {
-	MediaName string `json:"media_name"`
-	Width     int    `json:"width"`
-	Height    int    `json:"height"`
+type MediaSize struct { //! varyant name de eklenmeli!!!
+	VariantName string `json:"variant_name"`
+	Width       int    `json:"width"`
+	Height      int    `json:"height"`
 }
