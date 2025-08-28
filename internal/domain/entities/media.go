@@ -3,20 +3,31 @@ package entities
 import "time"
 
 type Media struct {
-	MediaID   string    `json:"id"`
-	Filename  string    `json:"file_name"`
-	FileType  string    `json:"file_type"`
-	FileSize  int64     `json:"file_size"`
-	FilePath  string    `json:"file_path"`
-	Metadata  Metadata  `json:"metadata,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	MediaID      string
+	Filename     string
+	FileType     string
+	FileSize     int64
+	Status       string
+	OriginalPath string
+	Metadata     Metadata
+	Jobs         []*MediaJob
+}
+
+type MediaJob struct {
+	JobID      string
+	MediaID    string
+	Type       string
+	Status     string
+	Params     map[string]string
+	OutputPath string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 type Metadata struct {
-	Width    int    `json:"width,omitempty"`
-	Height   int    `json:"height,omitempty"`
-	Format   string `json:"format,omitempty"`   // jpg, png vs.
-	Duration int    `json:"duration,omitempty"` // video için
-	Size     int64  `json:"size,omitempty"`     // byte cinsinden
+	Width    int
+	Height   int
+	Format   string
+	Duration int
+	Size     int64
 }

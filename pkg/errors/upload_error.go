@@ -43,4 +43,7 @@ var (
 	ErrCannotRemove = func(err error) *UploadError {
 		return &UploadError{Code: "cannot_remove", Message: "Dosya kaldırılamadı", Err: err}
 	}
+	ErrChunksNotMerged = func(err error) *UploadError {
+		return &UploadError{Code: "chunks_not_merged", Message: "Chunklar birleştirilemedi", Err: err}
+	}
 )

@@ -7,5 +7,6 @@
   "file_cant_open": "File cannot be opened",
   "invalid_chunk": "Invalid chunk",
   "cannot_stat": "Cannot read directory file",
-  "cannot_remove": "Cannot remove file"
+  "cannot_remove": "Cannot remove file",
+  "chunks_not_merged": "Chunks cannot be merged"
 }

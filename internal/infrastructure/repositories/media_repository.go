@@ -1,6 +1,8 @@
 package repositories
 
-import "file-uploader/internal/domain/dto"
+import (
+	"file-uploader/internal/domain/dto"
+)
 
 type MediaRepository interface {
 	SaveMedia(media dto.Media) error

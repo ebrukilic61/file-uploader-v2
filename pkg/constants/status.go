@@ -7,4 +7,5 @@ const (
 	StatusOK         = "ok"
 	StatusCancelled  = "cancelled"
 	StatusQueued     = "queued"
+	StatusPending    = "pending"
 )

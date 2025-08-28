@@ -7,5 +7,6 @@
   "file_cant_open": "Dosya açılamadı",
   "invalid_chunk": "Geçersiz chunk",
   "cannot_stat": "Dizin dosyası okunamadı",
-  "cannot_remove": "Dosya kaldırılamadı"
+  "cannot_remove": "Dosya kaldırılamadı",
+  "chunks_not_merged": "Chunklar birleştirilemedi"
 }

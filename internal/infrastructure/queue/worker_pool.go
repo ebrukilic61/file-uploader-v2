@@ -33,8 +33,7 @@ func NewWorkerPool(workerCount int, repo repositories.FileUploadRepository) *Wor
 	return pool
 }
 
-/*
-func NewMediaWorkerPool(workerCount int, repo repositories.MediaRepository) *WorkerPool {
+func NewMediaWorkerPool(workerCount int, rep repositories.MediaRepository) *WorkerPool {
 	ctx, cancel := context.WithCancel(context.Background())
 	pool := &WorkerPool{
 		JobChan: make(chan Job, 100),
@@ -42,18 +41,17 @@ func NewMediaWorkerPool(workerCount int, repo repositories.MediaRepository) *Wor
 		cancel:  cancel,
 	}
 	for i := 0; i < workerCount; i++ {
-		worker := &Worker{
+		worker := &WorkerMedia{
 			ID:      i,
 			JobChan: pool.JobChan,
 			Wg:      &pool.wg,
-			Repo:    repo,
+			Repo:    rep,
 		}
 		pool.wg.Add(1)
 		worker.Start(pool.ctx)
 	}
 	return pool
 }
-*/
 
 func (p *WorkerPool) AddJob(job Job) {
 	p.JobChan <- job
