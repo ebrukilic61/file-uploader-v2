@@ -24,22 +24,50 @@ File-Uploader/
 ├── internal/
 │   ├── delivery/
 │   │   └── http/
+│   │     └── handlers/
 │   │       └── upload_handler.go # HTTP handler'lar
+│   │       └── media_handler.go
+│   │       └── cleanup_handler.go
+│   │     └── routers/
+│   │       └── media_routers.go
+│   │       └── upload_routers.go
 │   ├── domain/
-│   │   ├── entities/
-│   │   │   └── upload.go        # Domain entities
-│   │   ├── models/
+│   │   ├── dto/
 │   │   │   └── upload_dto.go    # Data Transfer Objects
-│   │   └── repositories/
-│   │       ├── file_repository.go # Dosya işlemleri
-│   │       └── upload_repo.go   # Repository interface
+│   │   │   └── images_dto.go    
+│   │   │   └── media_dto.go    
+│   │   ├── entities/
+│   │   │   └── images.go        # Domain entities
+│   │   │   └── media.go
+│   │   │   └── upload.go
+│   │   ├── repositories/
+│   │   │   ├── media_repo.go # Media Repository interface
+│   │   │   └── upload_repo.go # Upload Repository interface
+│   │   └── mapper/
+│   │       └── mapper.go    # Data Transfer Objects
 │   ├── infrastructure/
+│   │   ├── db/
+│   │   │    └── db.go
+│   │   ├── processor/
+│   │   │   └── db.go
+│   │   ├── queue/
+│   │   │   └── job.go
+│   │   │   └── worker_pool.go
+│   │   │   └── worker.go
+│   │   ├── repositories/
+│   │   │   └── file_upload_repository.go
+│   │   │   └── media_repository.go
+│   │   │   └── media_size_repository.go
+│   │   │   └── media_variant_repository.go
 │   │   └── storage/
 │   │       └── local_storage.go
 │   │       └── s3_storage.go
 │   ├── pkg/
-│   │   └── config/              # Konfigürasyon yönetimi
-│   │       └── config.go
+│   │   ├── config/              # Konfigürasyon yönetimi
+│   │   │   └── config.go
+│   │   ├──  constants/
+│   │   │   └── status.go
+
 │   └── usecases/
 │       └── file_uploader.go     # İş mantığı
 ├── env.example                  # Environment variables örneği
@@ -50,41 +78,7 @@ File-Uploader/
 
 ## Gereksinimler
 - Go 1.21+
-- FFmpeg
 
-## FFmpeg Kurulumu
-
-### Windows:
-```bash
-winget install ffmpeg
-```
-
-### macOS:
-```bash
-brew install ffmpeg
-```
-### Linux (Ubuntu/Debian):
-```
-sudo apt update && sudo apt install ffmpeg
-```
-## Gereksinimler
-- Go 1.21+
-- FFmpeg
-
-## FFmpeg Kurulumu
-
-### Windows:
-```bash
-winget install ffmpeg
-```
-### macOS:
-```bash
-brew install ffmpeg
-```
-### Linux (Ubuntu/Debian):
-```
-sudo apt update && sudo apt install ffmpeg
-```
 ## Klasör Konumları
 
 ### Varsayılan Konumlar:
@@ -103,7 +97,7 @@ GET /api/v1/upload/status?upload_id={upload_id}&filename={filename}
 {
   "upload_id": "test-123",
   "filename": "test.txt",
-  "uploaded_chunks": len(uploaded_chunks[])
+  "uploaded_chunks": [210]
 }
 ```
 
