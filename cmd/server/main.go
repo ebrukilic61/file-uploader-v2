@@ -15,6 +15,7 @@ import (
 	consts "file-uploader/pkg/constants"
 
 	"file-uploader/internal/delivery/http/routers"
+	"file-uploader/internal/infrastructure/db"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -24,6 +25,10 @@ import (
 
 func main() {
 	cfg := config.LoadConfig()
+	database, err := db.NewPostgresDB()
+	if err != nil {
+		log.Fatalf("DB connection failed: %v", err)
+	}
 
 	app := fiber.New(fiber.Config{
 		BodyLimit: int(cfg.Upload.MaxFileSize),
@@ -37,7 +42,8 @@ func main() {
 	app.Get("/swagger/*", swagger.HandlerDefault)
 
 	// Routes
-	routers.SetupUploadRoutes(app, cfg)
+	routers.SetupUploadRoutes(app, cfg, database)
+	routers.SetupMediaRoutes(app, cfg, database)
 
 	// server ayakta mı değil mi kontrolü:
 	app.Get("/health", func(c *fiber.Ctx) error {

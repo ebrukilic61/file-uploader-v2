@@ -2,7 +2,6 @@ package routers
 
 import (
 	"file-uploader/internal/delivery/http/handlers"
-	"file-uploader/internal/infrastructure/db"
 	infra_repo "file-uploader/internal/infrastructure/repositories"
 	"file-uploader/internal/infrastructure/storage"
 	"file-uploader/internal/usecases"
@@ -12,14 +11,10 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/robfig/cron/v3"
+	"gorm.io/gorm"
 )
 
-func SetupUploadRoutes(app *fiber.App, cfg *config.Config) {
-	//cfg := config.LoadConfig()
-	database, err := db.NewPostgresDB()
-	if err != nil {
-		log.Fatalf("DB connection failed: %v", err)
-	}
+func SetupUploadRoutes(app *fiber.App, cfg *config.Config, database *gorm.DB) {
 	fileRepo := infra_repo.NewFileUploadRepository(cfg.Upload.TempDir, cfg.Upload.UploadsDir)
 	localStorage := storage.NewLocalStorage(cfg.Upload.UploadsDir) // Genel dosya yüklemeleri
 	mediaRepo := infra_repo.NewMediaRepository(database)
@@ -37,9 +32,6 @@ func SetupUploadRoutes(app *fiber.App, cfg *config.Config) {
 		}
 	})
 	c.Start() // cron job'u başlatır
-
-	//uploadService := usecases.NewUploadService(fileRepo, localStorage)
-	// func usecases.NewUploadService(repo repositories.FileUploadRepository, storage repositories.StorageStrategy, mediaService usecases.MediaService) usecases.UploadService
 
 	uploadService := usecases.NewUploadService(fileRepo, localStorage, mediaService)
 

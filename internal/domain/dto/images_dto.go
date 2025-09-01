@@ -13,12 +13,12 @@ type ImageDTO struct {
 }
 
 type MediaVariant struct {
-	VariantID   string `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"variant_id"`
-	MediaID     string `gorm:"type:uuid" json:"media_id"`
-	VariantName string `gorm:"type:varchar(100)" json:"variant_name"`
+	VariantID   string `json:"variant_id"`
+	MediaID     string `json:"media_id"`
+	VariantName string `json:"variant_name"`
 	Width       int    `json:"width"`
 	Height      int    `json:"height"`
-	FilePath    string `gorm:"type:varchar(255)" json:"file_path"`
+	FilePath    string `json:"file_path"`
 }
 
 type MediaSize struct {

@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"file-uploader/pkg/file"
 	fl "file-uploader/pkg/file"
 	"fmt"
 	"io"
@@ -105,15 +106,6 @@ func (r *fileUploadRepository) SaveChunk(uploadID, filename string, chunkIndex i
 	}
 	fileClosed = true
 
-	// Atomic rename
-	/*
-			// Fallback: copy + remove
-		if r.ChunkExists(uploadID, filename, chunkIndex) {
-			os.Remove(tmpPath)
-			return nil // Chunk zaten var
-		}
-
-	*/
 	if err := os.Rename(tmpPath, finalPath); err != nil {
 		if copyErr := fl.CopyFile(tmpPath, finalPath); copyErr != nil {
 			//		os.Remove(tmpPath)
@@ -224,8 +216,14 @@ func (r *fileUploadRepository) MergeChunks(uploadID, filename string, totalChunk
 
 	saveDir := filepath.Join(r.tempDir, uploadID)
 	finalFileName := fl.MakeKey(uploadID, filename)
-	finalPath := filepath.Join(r.uploadsDir, "media", "original", finalFileName)
-	//finalPath := filepath.Join("uploads", "media", "original", originalFileName)
+	//finalPath := filepath.Join(r.uploadsDir, "media", "original", finalFileName)
+	isImageFile := file.IsImageFile(finalFileName)
+	finalPath := ""
+	if isImageFile {
+		finalPath = filepath.Join(r.uploadsDir, "media", "original", finalFileName)
+	} else {
+		finalPath = filepath.Join(r.uploadsDir, "other", finalFileName) //* video için de isVideoFile fonksiyonu yazılıp buraya eklenecek!!!
+	}
 
 	fmt.Printf("DEBUG: Merging to %s\n", finalPath) // Debug log
 

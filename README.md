@@ -42,14 +42,16 @@ File-Uploader/
 │   │   │   └── upload.go
 │   │   ├── repositories/
 │   │   │   ├── media_repo.go # Media Repository interface
-│   │   │   └── upload_repo.go # Upload Repository interface
+│   │   │   ├── upload_repo.go # Upload Repository interface
+│   │   │   └── storage_repo.go
 │   │   └── mapper/
 │   │       └── mapper.go    # Data Transfer Objects
 │   ├── infrastructure/
 │   │   ├── db/
 │   │   │    └── db.go
+│   │   │    └── migrate.go
 │   │   ├── processor/
-│   │   │   └── db.go
+│   │   │   └── image.go
 │   │   ├── queue/
 │   │   │   └── job.go
 │   │   │   └── worker_pool.go
@@ -59,18 +61,34 @@ File-Uploader/
 │   │   │   └── media_repository.go
 │   │   │   └── media_size_repository.go
 │   │   │   └── media_variant_repository.go
-│   │   └── storage/
-│   │       └── local_storage.go
-│   │       └── s3_storage.go
+│   │   ├── storage/
+│   │   │   └── local_storage.go
+│   │   │   └── s3_storage.go
+│   │   ├── usecases/
+│   │   │   └── cleanup.go
+│   │   │   └── file_uploader.go
+│   │   │   └── media.go
 │   ├── pkg/
 │   │   ├── config/              # Konfigürasyon yönetimi
 │   │   │   └── config.go
 │   │   ├──  constants/
 │   │   │   └── status.go
-
-│   └── usecases/
-│       └── file_uploader.go     # İş mantığı
-├── env.example                  # Environment variables örneği
+│   │   ├──  errors/
+│   │   │   ├──  i18n/
+│   │   │   │    └── en.json
+│   │   │   │    └── error_translator.go
+│   │   │   │    └── tr.json
+│   │   │   └── error_handler.go
+│   │   │   └── upload_error.go
+│   │   ├──  file/
+│   │   │   └── calculate_file_hash.go
+│   │   │   └── copy_file.go
+│   │   │   └── make_key.go
+│   │   │   └── validate_file_hash.go
+│   │   ├──  response/
+│   │   │   └── response.go
+├── .env                  # Environment
+├── .gitignore
 ├── go.mod
 └── go.sum
 ```
@@ -84,6 +102,7 @@ File-Uploader/
 ### Varsayılan Konumlar:
 - **Temp Klasörü**: `./temp_uploads/` (proje kökünde belirtildi config dosyası içerisinde -> cmd/server içerisinde oluşturuluyor)
 - **Uploads Klasörü**: `./uploads/` (proje kökünde belirtildi config dosyası içerisinde -> cmd/server içerisinde oluşturuluyor)
+- **Media Klasörü**: `./uploads/media` (uploads klasörü içerisind ebulunmaktadır. image dosyalarının orijinal (original) ve varyant (variant) halleri bu dosya içerisinde tutulmaktadır. Aynı zamanda buradaki veriler veri tabanı tablolarına aktarılmaktadır.)
 
 ## API Endpoints
 

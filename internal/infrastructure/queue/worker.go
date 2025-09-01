@@ -104,7 +104,7 @@ func (w *Worker) processSaveChunk(job Job) error {
 
 	if err := w.Repo.SaveChunk(job.UploadID, job.Filename, job.ChunkIndex, job.File); err != nil {
 		errors.ErrChunkNotSave(err)
-		w.Repo.CleanupTempFiles(job.UploadID) // Hata durumunda temp dosyaları temizle
+		w.Repo.CleanupTempFiles(job.UploadID) // Hata durumunda temp dosyaları temizler
 		return err
 	}
 	return nil

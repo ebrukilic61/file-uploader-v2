@@ -18,19 +18,13 @@ type MediaService interface {
 	GetMediaByID(id string) (*dto.ImageDTO, error)
 	UpdateMediaStatus(id string, status string) error
 	GetAllMedia() ([]*dto.ImageDTO, error)
-	GetMediaByStatus(status string) ([]*dto.ImageDTO, error)
 
 	// Media Variant
 	CreateVariantsForMedia(mediaID, originalPath string) error
-	GetVariantByID(id string) (*dto.MediaVariant, error)
-	UpdateVariant(variant *dto.MediaVariant) error
-	DeleteVariant(id string) error
 
 	// Media Size
 	CreateSize(size *dto.MediaSize) error
-	GetSizeByName(name string) (*dto.MediaSize, error)
 	UpdateSize(size *dto.MediaSize) error
-	DeleteSize(name string) error
 }
 
 type mediaService struct {
@@ -92,10 +86,6 @@ func (u *mediaService) GetAllMedia() ([]*dto.ImageDTO, error) {
 	return u.mediaRepo.GetAllMedia()
 }
 
-func (u *mediaService) GetMediaByStatus(status string) ([]*dto.ImageDTO, error) {
-	return u.mediaRepo.GetMediaByStatus(status)
-}
-
 func (s *mediaService) CreateVariantsForMedia(mediaID, originalPath string) error {
 	sizes, err := s.sizeRepo.GetAllSizes()
 	if err != nil {
@@ -142,31 +132,11 @@ func (s *mediaService) CreateVariantsForMedia(mediaID, originalPath string) erro
 	return nil
 }
 
-func (s *mediaService) GetVariantByID(id string) (*dto.MediaVariant, error) {
-	return s.variantRepo.GetVariantByID(id)
-}
-
-func (s *mediaService) UpdateVariant(variant *dto.MediaVariant) error {
-	return s.variantRepo.UpdateVariant(variant)
-}
-
-func (s *mediaService) DeleteVariant(id string) error {
-	return s.variantRepo.DeleteVariant(id)
-}
-
 // Media Size
 func (s *mediaService) CreateSize(size *dto.MediaSize) error {
 	return s.sizeRepo.CreateSize(size)
 }
 
-func (s *mediaService) GetSizeByName(name string) (*dto.MediaSize, error) {
-	return s.sizeRepo.GetSizeByName(name)
-}
-
 func (s *mediaService) UpdateSize(size *dto.MediaSize) error {
 	return s.sizeRepo.UpdateSize(size)
-}
-
-func (s *mediaService) DeleteSize(id string) error {
-	return s.sizeRepo.DeleteSize(id)
 }
