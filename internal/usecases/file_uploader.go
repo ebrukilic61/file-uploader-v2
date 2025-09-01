@@ -219,34 +219,32 @@ func (s *uploadService) getMimeTypeFromExtension(filename string) string {
 }
 
 // Image dosyasını işle ve media service'e gönder
-func (s *uploadService) processImageFile(uploadID, filename, mergedFilePath string) error {
-	// Merge edilmiş dosyayı aç
-	file, err := os.Open(mergedFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to open merged file: %w", err)
-	}
-	defer file.Close()
-
+func (s *uploadService) processImageFile(uploadID, filename, finalFilePath string) error {
 	// ImageDTO oluştur
 	imageDTO := &dto.ImageDTO{
 		OriginalName: filename,
 		FileType:     s.getMimeTypeFromExtension(filename),
+		FilePath:     finalFilePath,
 		Status:       "processing",
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
 
-	// Media service'e gönder
-	if err := s.mediaService.CreateMedia(imageDTO, file); err != nil {
+	file, err := os.Open(finalFilePath)
+	if err != nil {
+		return fmt.Errorf("dosya açılamadı: %w", err)
+	}
+	defer file.Close()
+
+	if err := s.mediaService.CreateMedia(imageDTO, finalFilePath); err != nil {
 		return fmt.Errorf("media oluşturulamadı: %w", err)
 	}
-
-	// Başarılı olduğunda temp dosyayı sil
-	if err := os.Remove(mergedFilePath); err != nil {
-		log.Printf("WARN: temp file kaldırılamadı %s: %v", mergedFilePath, err)
+	//varyantları oluşturmak için:
+	if err := s.mediaService.CreateVariantsForMedia(imageDTO.ID, finalFilePath); err != nil {
+		return fmt.Errorf("media varyantları oluşturulamadı: %w", err)
 	}
 
-	log.Printf("INFO: Image %s başarıyla işlendi ve %s konumuna kaydedildi", filename, imageDTO.FilePath)
+	log.Printf("INFO: Image %s başarıyla işlendi ve DB’ye kaydedildi. Path: %s", filename, imageDTO.FilePath)
 	return nil
 }
 

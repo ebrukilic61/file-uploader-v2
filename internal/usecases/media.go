@@ -3,20 +3,25 @@ package usecases
 import (
 	"file-uploader/internal/domain/dto"
 	"file-uploader/internal/domain/repositories"
+	"file-uploader/internal/infrastructure/processor"
 	"fmt"
-	"mime/multipart"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/google/uuid"
 )
 
 type MediaService interface {
 	// Images
-	CreateMedia(media *dto.ImageDTO, file multipart.File) error
+	CreateMedia(media *dto.ImageDTO, filepath string) error
 	GetMediaByID(id string) (*dto.ImageDTO, error)
 	UpdateMediaStatus(id string, status string) error
 	GetAllMedia() ([]*dto.ImageDTO, error)
 	GetMediaByStatus(status string) ([]*dto.ImageDTO, error)
 
 	// Media Variant
-	CreateVariant(variant *dto.MediaVariant, variant_name string) error
+	CreateVariantsForMedia(mediaID, originalPath string) error
 	GetVariantByID(id string) (*dto.MediaVariant, error)
 	UpdateVariant(variant *dto.MediaVariant) error
 	DeleteVariant(id string) error
@@ -50,24 +55,13 @@ func NewMediaService(
 }
 
 // Images
-func (u *mediaService) CreateMedia(media *dto.ImageDTO, file multipart.File) error {
+func (u *mediaService) CreateMedia(media *dto.ImageDTO, finalPath string) error {
 	// İş mantığı: desteklenen dosya tiplerini kontrol et
 	if media.FileType != "image/png" && media.FileType != "image/jpeg" && media.FileType != "image/jpg" && media.FileType != "image/gif" {
 		return fmt.Errorf("unsupported file type: %s", media.FileType)
 	}
-
-	metadata := map[string]string{
-		"name": media.OriginalName,
-		"type": media.FileType,
-	}
-
-	filePath, err := u.storage.UploadImage(file, metadata)
-	if err != nil {
-		return fmt.Errorf("failed to upload media: %w", err)
-	}
-
 	// DTO’da storage pathini güncelle
-	media.FilePath = filePath
+	media.FilePath = finalPath
 
 	// DB’ye kaydet
 	return u.mediaRepo.CreateMedia(media)
@@ -102,14 +96,50 @@ func (u *mediaService) GetMediaByStatus(status string) ([]*dto.ImageDTO, error) 
 	return u.mediaRepo.GetMediaByStatus(status)
 }
 
-// Media Variant -> varyant tipi belirlemek gerekir mi
-func (s *mediaService) CreateVariant(variant *dto.MediaVariant, variant_type string) error { //bir medya için varyant üretir
-	// variant_type kontrol için eklendi
-	if variant_type == "" {
-		return fmt.Errorf("variant_type is required") // ek olarak belli başlı variant isimleri olacak, onalardan biri olmalı, bu bilgi de media sizes tablosu içinde!!!
+func (s *mediaService) CreateVariantsForMedia(mediaID, originalPath string) error {
+	sizes, err := s.sizeRepo.GetAllSizes()
+	if err != nil {
+		return fmt.Errorf("failed to get media sizes: %w", err)
 	}
-	variant.VariantName = variant_type
-	return s.variantRepo.CreateVariant(variant)
+
+	for _, size := range sizes {
+		baseName := filepath.Base(originalPath)
+		ext := filepath.Ext(baseName)
+		nameWithoutExt := strings.TrimSuffix(baseName, ext)
+		outputDir := filepath.Join("uploads", "media", "variants", fmt.Sprintf("%s", mediaID)) // id klasörü içerisinde oluşturuldu ki karmaşıklık yaşanmasın
+		if err := os.MkdirAll(outputDir, os.ModePerm); err != nil {
+			return fmt.Errorf("variants klasörü oluşturulamadı: %w", err)
+		}
+
+		variantName := fmt.Sprintf("%s_%s_%dx%d", nameWithoutExt, size.VariantType, size.Width, size.Height)
+
+		outputPath := filepath.Join(outputDir, fmt.Sprintf("%s_%s_%dx%d%s", nameWithoutExt, size.VariantType, size.Width, size.Height, ext)) // isimlendirme
+		resizedPath, err := processor.ResizeImage(originalPath, outputPath, processor.ResizeOption{
+			Width:   size.Width,
+			Height:  size.Height,
+			Quality: 100,
+		})
+
+		if err != nil {
+			return fmt.Errorf("görsel için yeniden boyutlandırma hatası: %w", err)
+		}
+
+		variant := &dto.MediaVariant{
+			VariantID:   uuid.New().String(),
+			MediaID:     mediaID,
+			FilePath:    resizedPath,
+			Width:       size.Width,
+			Height:      size.Height,
+			VariantName: variantName,
+		}
+
+		// DB’ye kaydet
+		if err := s.variantRepo.CreateVariant(variant); err != nil {
+			return fmt.Errorf("media varyantı oluşturulamadı: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (s *mediaService) GetVariantByID(id string) (*dto.MediaVariant, error) {

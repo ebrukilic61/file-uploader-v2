@@ -22,6 +22,7 @@ type MediaVariantRepository interface {
 type MediaSizeRepository interface {
 	CreateSize(size *dto.MediaSize) error
 	GetSizeByName(name string) (*dto.MediaSize, error)
+	GetAllSizes() ([]*dto.MediaSize, error)
 	UpdateSize(size *dto.MediaSize) error
 	DeleteSize(name string) error
 }

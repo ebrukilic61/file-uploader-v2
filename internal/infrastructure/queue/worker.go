@@ -48,11 +48,6 @@ func (w *WorkerMedia) Start(ctx context.Context) { // worker başlatma fonksiyon
 	}()
 }
 
-func processJobMedia(job Job) {
-	log.Printf("Processing media job: %s", job.UploadID)
-	// Media job processing logic goes here
-}
-
 func (w *Worker) Start(ctx context.Context) { // worker başlatma fonksiyonu
 	go func() {
 		defer w.Wg.Done()

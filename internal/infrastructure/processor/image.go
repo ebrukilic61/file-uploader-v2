@@ -3,7 +3,6 @@ package processor
 import (
 	"fmt"
 	"path/filepath"
-	"strconv"
 
 	"github.com/disintegration/imaging"
 )
@@ -14,20 +13,14 @@ type ResizeOption struct {
 	Quality int // 1-100
 }
 
-func ResizeImage(inputPath, outputPath string, options ResizeOption) (string, error) { // tek bir image için
-	// Görüntüyü dosyadan aç
+func ResizeImage(inputPath, outputPath string, options ResizeOption) (string, error) {
 	img, err := imaging.Open(inputPath)
 	if err != nil {
 		return "", err
 	}
 
-	// Görüntüyü yeniden boyutlandırmak için:
-	resizedImg := imaging.Fit(img, options.Width, options.Height, imaging.Lanczos) //scaling için -> oranı korur
+	resizedImg := imaging.Fit(img, options.Width, options.Height, imaging.Lanczos)
 
-	base := filepath.Base(inputPath)
-	outputPath = filepath.Join(filepath.Dir(outputPath), "resized_"+strconv.Itoa(options.Width)+"_"+strconv.Itoa(options.Height)+"_"+base)
-
-	// kaydetmek için:
 	err = imaging.Save(resizedImg, outputPath, imaging.JPEGQuality(options.Quality))
 	if err != nil {
 		return "", err

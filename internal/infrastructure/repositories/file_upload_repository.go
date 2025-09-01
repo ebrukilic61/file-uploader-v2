@@ -224,7 +224,8 @@ func (r *fileUploadRepository) MergeChunks(uploadID, filename string, totalChunk
 
 	saveDir := filepath.Join(r.tempDir, uploadID)
 	finalFileName := fl.MakeKey(uploadID, filename)
-	finalPath := filepath.Join(r.uploadsDir, finalFileName)
+	finalPath := filepath.Join(r.uploadsDir, "media", "original", finalFileName)
+	//finalPath := filepath.Join("uploads", "media", "original", originalFileName)
 
 	fmt.Printf("DEBUG: Merging to %s\n", finalPath) // Debug log
 

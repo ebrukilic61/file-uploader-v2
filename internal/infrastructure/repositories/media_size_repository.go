@@ -30,6 +30,14 @@ size := &dto.MediaSize{
 
 */
 
+func (r *mediaSizeRepository) GetAllSizes() ([]*dto.MediaSize, error) {
+	var sizes []*dto.MediaSize
+	if err := r.db.Find(&sizes).Error; err != nil {
+		return nil, err
+	}
+	return sizes, nil
+}
+
 func (r *mediaSizeRepository) GetSizeByName(name string) (*dto.MediaSize, error) {
 	var size dto.MediaSize
 	if err := r.db.First(&size, "variant_type = ?", name).Error; err != nil {
