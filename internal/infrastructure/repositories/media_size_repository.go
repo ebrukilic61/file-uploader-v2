@@ -32,7 +32,7 @@ size := &dto.MediaSize{
 
 func (r *mediaSizeRepository) GetSizeByName(name string) (*dto.MediaSize, error) {
 	var size dto.MediaSize
-	if err := r.db.First(&size, "media_name = ?", name).Error; err != nil {
+	if err := r.db.First(&size, "variant_type = ?", name).Error; err != nil {
 		return nil, err
 	}
 	return &size, nil
@@ -43,5 +43,5 @@ func (r *mediaSizeRepository) UpdateSize(size *dto.MediaSize) error {
 }
 
 func (r *mediaSizeRepository) DeleteSize(name string) error {
-	return r.db.Delete(&dto.MediaSize{}, "media_name = ?", name).Error
+	return r.db.Delete(&dto.MediaSize{}, "variant_type = ?", name).Error
 }

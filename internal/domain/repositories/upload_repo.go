@@ -11,14 +11,8 @@ type FileUploadRepository interface {
 	SetUploadedChunks(uploadID, filename string, merged int)
 	GetUploadedChunks(uploadID, filename string) (int, bool)
 	// Dosya birleştirme / hash doğrulama / temizlik
-	MergeChunks(uploadID, filename string, totalChunks int) error
+	MergeChunks(uploadID, filename string, totalChunks int) (string, error)
 	CleanupTempFiles(uploadID string) error
 	UploadsDir() string
 	TempDir() string
-}
-
-type StorageStrategy interface { //! bu uploaddan ayrılabilir!!!
-	Upload(file multipart.File, metadata map[string]string) (string, error)
-	Download(fileID string) (multipart.File, error)
-	Delete(fileID string) error
 }

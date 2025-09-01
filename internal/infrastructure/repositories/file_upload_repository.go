@@ -215,7 +215,7 @@ func (r *fileUploadRepository) cleanupChunkTracking(uploadID string) {
 	}
 }
 
-func (r *fileUploadRepository) MergeChunks(uploadID, filename string, totalChunks int) error {
+func (r *fileUploadRepository) MergeChunks(uploadID, filename string, totalChunks int) (string, error) {
 	r.incrementActiveOps(uploadID)
 	defer r.decrementActiveOps(uploadID)
 
@@ -236,12 +236,12 @@ func (r *fileUploadRepository) MergeChunks(uploadID, filename string, totalChunk
 		}
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf("eksik chunk(lar) var: %v", missing)
+		return "", fmt.Errorf("eksik chunk(lar) var: %v", missing) // Return boş string ve error
 	}
 
 	// uploads klasörünü oluştur
 	if err := os.MkdirAll(r.uploadsDir, os.ModePerm); err != nil {
-		return fmt.Errorf("uploads klasörü oluşturulamadı: %w", err)
+		return "", fmt.Errorf("uploads klasörü oluşturulamadı: %w", err) // Return boş string ve error
 	}
 
 	// Eğer dosya zaten varsa, eski olanı backup al
@@ -261,7 +261,7 @@ func (r *fileUploadRepository) MergeChunks(uploadID, filename string, totalChunk
 				log.Printf("UYARI! Temp klasörü temizlenemedi: %v", cleanupErr)
 			}
 		*/
-		return fmt.Errorf("final dosya oluşturulamadı: %w", err)
+		return "", fmt.Errorf("final dosya oluşturulamadı: %w", err) // Return boş string ve error
 	}
 	defer outFile.Close()
 
@@ -288,19 +288,40 @@ func (r *fileUploadRepository) MergeChunks(uploadID, filename string, totalChunk
 			fmt.Printf("DEBUG: Chunk %d merged, %d bytes\n", i, bytesWritten)
 		}()
 	}
+
+	// Tüm chunk'ların başarıyla merge edilip edilmediğini kontrol et
+	if len(merged) != totalChunks {
+		return "", fmt.Errorf("merge işlemi başarısız: %d/%d chunk merge edildi", len(merged), totalChunks)
+	}
+
 	// Başarılı chunk'ları kaydet
 	r.SetUploadedChunks(uploadID, filename, len(merged))
-	/*
-		stat, _ := outFile.Stat()
-		fmt.Printf("DEBUG: Final file size: %d bytes\n", stat.Size())
 
-	*/
 	// Dosya boyutunu kontrol et
 	if stat, err := outFile.Stat(); err == nil {
 		fmt.Printf("DEBUG: Final file size: %d bytes\n", stat.Size())
 	}
 
-	return nil
+	r.cleanupChunkFiles(saveDir, filename, totalChunks)
+
+	return finalPath, nil
+}
+
+// Helper function: Chunk dosyalarını temizle
+func (r *fileUploadRepository) cleanupChunkFiles(saveDir, filename string, totalChunks int) {
+	for i := 1; i <= totalChunks; i++ {
+		partPath := filepath.Join(saveDir, fmt.Sprintf("%s.part%d", filename, i))
+		if err := os.Remove(partPath); err != nil {
+			log.Printf("UYARI: Chunk dosyası silinemedi %s: %v", partPath, err)
+		}
+	}
+
+	// Eğer upload dizini boşsa onu da sil
+	if entries, err := os.ReadDir(saveDir); err == nil && len(entries) == 0 {
+		if err := os.Remove(saveDir); err != nil {
+			log.Printf("UYARI: Upload dizini silinemedi %s: %v", saveDir, err)
+		}
+	}
 }
 
 func (r *fileUploadRepository) TempDir() string {

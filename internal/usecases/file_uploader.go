@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	"file-uploader/internal/domain/dto"
 	"file-uploader/internal/domain/repositories"
@@ -26,13 +28,14 @@ type UploadService interface {
 }
 
 type uploadService struct {
-	repo       repositories.FileUploadRepository
-	storage    repositories.StorageStrategy
-	mu         sync.Mutex
-	workerPool *queue.WorkerPool
+	repo         repositories.FileUploadRepository
+	storage      repositories.StorageStrategy
+	mu           sync.Mutex
+	workerPool   *queue.WorkerPool
+	mediaService MediaService
 }
 
-func NewUploadService(repo repositories.FileUploadRepository, storage repositories.StorageStrategy) UploadService {
+func NewUploadService(repo repositories.FileUploadRepository, storage repositories.StorageStrategy, mediaService MediaService) UploadService {
 	workerCount := 5
 	if val, ok := os.LookupEnv("WORKER_POOL_SIZE"); ok {
 		if wc, err := strconv.Atoi(val); err == nil {
@@ -41,10 +44,11 @@ func NewUploadService(repo repositories.FileUploadRepository, storage repositori
 	}
 	workerPool := queue.NewWorkerPool(workerCount, repo) // 5 worker ile başlatalım
 	return &uploadService{
-		repo:       repo,
-		storage:    storage,
-		mu:         sync.Mutex{}, //sonradan ekledim
-		workerPool: workerPool,
+		repo:         repo,
+		storage:      storage,
+		mu:           sync.Mutex{}, //sonradan ekledim
+		workerPool:   workerPool,
+		mediaService: mediaService,
 	}
 }
 
@@ -97,7 +101,7 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 	if err != nil {
 		return nil, errors.ErrFileCantOpen(err)
 	}
-	//defer file.Close()
+	defer file.Close()
 
 	// Hash doğrulama (eğer gerekiyorsa)
 	if req.ChunkHash != "" {
@@ -108,9 +112,9 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 			s.repo.CleanupTempFiles(req.UploadID)
 			return nil, errors.ErrTmpFile(tempSaveErr)
 		}
-		file.Close() // Dosyayı kapat, çünkü SaveChunk içinde açılmıştı
+		file.Close()
 
-		// Hash doğrulama için dosya yolunu oluştur
+		// Hash doğrulama için dosya yolu:
 		chunkPath := filepath.Join("temp_uploads", req.UploadID, fmt.Sprintf("%s.part%d", safeFilename, idx))
 
 		if err := fl.ValidateFileHash(chunkPath, req.ChunkHash); err != nil {
@@ -153,7 +157,6 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 }
 
 func (s *uploadService) CompleteUpload(req *dto.CompleteUploadRequestDTO) (*dto.CompleteUploadResponse, error) {
-	//* cancel upload ile race condition yaşamaması adına lock eklendi
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -164,15 +167,87 @@ func (s *uploadService) CompleteUpload(req *dto.CompleteUploadRequestDTO) (*dto.
 		Type:        queue.JobMerge,
 		Filename:    safeFilename,
 		TotalChunks: req.TotalChunks,
+		// Merge tamamlandığında çağrılacak callback
+		OnMergeSuccess: func(uploadID, filename, mergedFilePath string) {
+			if err := s.handleMergeSuccess(uploadID, filename, mergedFilePath); err != nil {
+				log.Printf("ERROR: handleMergeSuccess failed for %s: %v", filename, err)
+			}
+		},
 	}
 
 	s.workerPool.AddJob(mergeJob)
 
 	return &dto.CompleteUploadResponse{
 		Status:   consts.StatusQueued,
-		Message:  "Chunked dosyalar başarıyla birleştirildi",
+		Message:  "Chunked dosyalar işleme kuyruğuna alındı",
 		Filename: req.Filename,
 	}, nil
+}
+
+func (s *uploadService) handleMergeSuccess(uploadID, filename, mergedFilePath string) error {
+	if s.isImageFile(mergedFilePath) {
+		return s.processImageFile(uploadID, filename, mergedFilePath)
+	}
+	log.Printf("INFO: Non-image file uploaded: %s", filename)
+	return nil
+}
+
+func (s *uploadService) isImageFile(filename string) bool {
+	ext := strings.ToLower(filepath.Ext(filename))
+	imageExtensions := []string{".png", ".jpg", ".jpeg", ".gif"}
+
+	for _, imgExt := range imageExtensions {
+		if ext == imgExt {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *uploadService) getMimeTypeFromExtension(filename string) string {
+	ext := strings.ToLower(filepath.Ext(filename))
+	switch ext {
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".gif":
+		return "image/gif"
+	default:
+		return "application/octet-stream"
+	}
+}
+
+// Image dosyasını işle ve media service'e gönder
+func (s *uploadService) processImageFile(uploadID, filename, mergedFilePath string) error {
+	// Merge edilmiş dosyayı aç
+	file, err := os.Open(mergedFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to open merged file: %w", err)
+	}
+	defer file.Close()
+
+	// ImageDTO oluştur
+	imageDTO := &dto.ImageDTO{
+		OriginalName: filename,
+		FileType:     s.getMimeTypeFromExtension(filename),
+		Status:       "processing",
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	// Media service'e gönder
+	if err := s.mediaService.CreateMedia(imageDTO, file); err != nil {
+		return fmt.Errorf("media oluşturulamadı: %w", err)
+	}
+
+	// Başarılı olduğunda temp dosyayı sil
+	if err := os.Remove(mergedFilePath); err != nil {
+		log.Printf("WARN: temp file kaldırılamadı %s: %v", mergedFilePath, err)
+	}
+
+	log.Printf("INFO: Image %s başarıyla işlendi ve %s konumuna kaydedildi", filename, imageDTO.FilePath)
+	return nil
 }
 
 func (s *uploadService) CancelUpload(req *dto.CancelUploadRequestDTO) (*dto.CancelUploadResponse, error) {

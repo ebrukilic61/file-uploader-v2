@@ -5,9 +5,9 @@ import (
 	"file-uploader/internal/domain/entities"
 )
 
-func MediaToDTO(m *entities.ImageDTO) dto.ImageDTO {
+func MediaToDTO(m *entities.Image) dto.ImageDTO {
 	return dto.ImageDTO{
-		ID:           m.ID.String(),
+		//ID:           m.ID.String(),
 		OriginalName: m.OriginalName,
 		FileType:     m.FileType,
 		FilePath:     m.FilePath,

@@ -8,15 +8,16 @@ import (
 )
 
 type MediaService interface {
-	// Media (Images)
+	// Images
 	CreateMedia(media *dto.ImageDTO, file multipart.File) error
 	GetMediaByID(id string) (*dto.ImageDTO, error)
 	UpdateMediaStatus(id string, status string) error
+	GetAllMedia() ([]*dto.ImageDTO, error)
+	GetMediaByStatus(status string) ([]*dto.ImageDTO, error)
 
 	// Media Variant
 	CreateVariant(variant *dto.MediaVariant, variant_name string) error
 	GetVariantByID(id string) (*dto.MediaVariant, error)
-	GetMediaVariantByID(id string) (*dto.MediaVariant, error)
 	UpdateVariant(variant *dto.MediaVariant) error
 	DeleteVariant(id string) error
 
@@ -48,7 +49,7 @@ func NewMediaService(
 	}
 }
 
-// Media (Images)
+// Images
 func (u *mediaService) CreateMedia(media *dto.ImageDTO, file multipart.File) error {
 	// İş mantığı: desteklenen dosya tiplerini kontrol et
 	if media.FileType != "image/png" && media.FileType != "image/jpeg" && media.FileType != "image/jpg" && media.FileType != "image/gif" {
@@ -60,7 +61,7 @@ func (u *mediaService) CreateMedia(media *dto.ImageDTO, file multipart.File) err
 		"type": media.FileType,
 	}
 
-	filePath, err := u.storage.Upload(file, metadata)
+	filePath, err := u.storage.UploadImage(file, metadata)
 	if err != nil {
 		return fmt.Errorf("failed to upload media: %w", err)
 	}
@@ -93,6 +94,14 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
+func (u *mediaService) GetAllMedia() ([]*dto.ImageDTO, error) {
+	return u.mediaRepo.GetAllMedia()
+}
+
+func (u *mediaService) GetMediaByStatus(status string) ([]*dto.ImageDTO, error) {
+	return u.mediaRepo.GetMediaByStatus(status)
+}
+
 // Media Variant -> varyant tipi belirlemek gerekir mi
 func (s *mediaService) CreateVariant(variant *dto.MediaVariant, variant_type string) error { //bir medya için varyant üretir
 	// variant_type kontrol için eklendi
@@ -105,10 +114,6 @@ func (s *mediaService) CreateVariant(variant *dto.MediaVariant, variant_type str
 
 func (s *mediaService) GetVariantByID(id string) (*dto.MediaVariant, error) {
 	return s.variantRepo.GetVariantByID(id)
-}
-
-func (s *mediaService) GetMediaVariantByID(id string) (*dto.MediaVariant, error) {
-	return s.variantRepo.GetMediaVariantByID(id)
 }
 
 func (s *mediaService) UpdateVariant(variant *dto.MediaVariant) error {

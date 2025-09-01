@@ -46,9 +46,6 @@ type CompleteUploadResponse struct {
 	Status   string `json:"status"`
 	Message  string `json:"message"`
 	Filename string `json:"filename"`
-	//ResizedPath   string `json:"resized_path,omitempty"`
-	//ConvertedPath string `json:"converted_path,omitempty"`
-	//ThumbnailPath string `json:"thumbnail_path,omitempty"`
 }
 
 type ErrorResponse struct {

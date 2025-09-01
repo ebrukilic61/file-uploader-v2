@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type ImageDTO struct {
+type Image struct {
 	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
 	OriginalName string
 	FileType     string
@@ -15,7 +15,7 @@ type ImageDTO struct {
 	Status       string `gorm:"type:varchar(20)"`
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
-	DeletedAt    gorm.DeletedAt `gorm:"index"` // soft delete için
+	DeletedAt    gorm.DeletedAt `gorm:"index"` // soft delete
 }
 
 type MediaVariant struct {
@@ -29,12 +29,12 @@ type MediaVariant struct {
 }
 
 type MediaSize struct {
-	MediaName string `gorm:"primaryKey"`
-	Width     int
-	Height    int
+	VariantType string `gorm:"primaryKey"`
+	Width       int
+	Height      int
 }
 
-func (m *ImageDTO) BeforeCreate(tx *gorm.DB) (err error) {
+func (m *Image) BeforeCreate(tx *gorm.DB) (err error) {
 	m.ID = uuid.New()
 	return
 }

@@ -2,7 +2,9 @@ package routers
 
 import (
 	"file-uploader/internal/delivery/http/handlers"
-	"file-uploader/internal/infrastructure/repositories"
+	"file-uploader/internal/infrastructure/db"
+	infra_repo "file-uploader/internal/infrastructure/repositories"
+	"file-uploader/internal/infrastructure/storage"
 	"file-uploader/internal/usecases"
 	"file-uploader/pkg/config"
 	"log"
@@ -13,8 +15,19 @@ import (
 )
 
 func SetupUploadRoutes(app *fiber.App, cfg *config.Config) {
-	fileRepo := repositories.NewFileUploadRepository(cfg.Upload.TempDir, cfg.Upload.UploadsDir)
-	//localStorage := &storage.LocalStorage{BasePath: "uploads"}
+	//cfg := config.LoadConfig()
+	database, err := db.NewPostgresDB()
+	if err != nil {
+		log.Fatalf("DB connection failed: %v", err)
+	}
+	fileRepo := infra_repo.NewFileUploadRepository(cfg.Upload.TempDir, cfg.Upload.UploadsDir)
+	localStorage := storage.NewLocalStorage(cfg.Upload.UploadsDir) // Genel dosya yüklemeleri
+	mediaRepo := infra_repo.NewMediaRepository(database)
+	variantRepo := infra_repo.NewMediaVariantRepository(database)
+	sizeRepo := infra_repo.NewMediaSizeRepository(database)
+
+	mediaService := usecases.NewMediaService(mediaRepo, variantRepo, sizeRepo, localStorage)
+
 	cleanupUC := usecases.NewCleanupService(fileRepo)
 	c := cron.New(cron.WithSeconds())
 
@@ -26,7 +39,9 @@ func SetupUploadRoutes(app *fiber.App, cfg *config.Config) {
 	c.Start() // cron job'u başlatır
 
 	//uploadService := usecases.NewUploadService(fileRepo, localStorage)
-	uploadService := usecases.NewUploadService(fileRepo, nil)
+	// func usecases.NewUploadService(repo repositories.FileUploadRepository, storage repositories.StorageStrategy, mediaService usecases.MediaService) usecases.UploadService
+
+	uploadService := usecases.NewUploadService(fileRepo, localStorage, mediaService)
 
 	uploadHandler := handlers.NewUploadHandler(uploadService)
 

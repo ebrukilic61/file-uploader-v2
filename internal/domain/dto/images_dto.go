@@ -13,17 +13,16 @@ type ImageDTO struct {
 }
 
 type MediaVariant struct {
-	VariantID   string    `json:"variant_id"`
-	MediaID     string    `json:"media_id"`
-	VariantName string    `json:"variant_name"`
-	Width       int       `json:"width"`
-	Height      int       `json:"height"`
-	FilePath    string    `json:"file_path"`
-	CreatedAt   time.Time `json:"created_at"`
+	VariantID   string `json:"variant_id"`
+	MediaID     string `json:"media_id"`
+	VariantName string `json:"variant_name"`
+	Width       int    `json:"width"`
+	Height      int    `json:"height"`
+	FilePath    string `json:"file_path"`
 }
 
-type MediaSize struct { //! varyant name de eklenmeli!!!
-	VariantName string `json:"variant_name"`
+type MediaSize struct {
+	VariantType string `json:"variant_type"`
 	Width       int    `json:"width"`
 	Height      int    `json:"height"`
 }

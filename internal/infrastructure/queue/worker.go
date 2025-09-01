@@ -116,16 +116,19 @@ func (w *Worker) processSaveChunk(job Job) error {
 }
 
 func (w *Worker) processMergeChunks(job Job) error {
-	err := w.Repo.MergeChunks(job.UploadID, job.Filename, job.TotalChunks)
+	log.Printf("Worker %d: Merge işlemi başlatılıyor - UploadID: %s, Filename: %s", w.ID, job.UploadID, job.Filename)
+
+	mergedFilePath, err := w.Repo.MergeChunks(job.UploadID, job.Filename, job.TotalChunks)
 	if err != nil {
-		errors.ErrChunksNotMerged(err)
-		w.Repo.CleanupTempFiles(job.UploadID) // Hata durumunda temp dosyaları temizle
+		log.Printf("Worker %d: Merge işlemi başarısız - %v", w.ID, err)
 		return err
 	}
-	if err := w.Repo.CleanupTempFiles(job.UploadID); err != nil {
-		//log.Printf("failed to cleanup temp files: %w", err)
-		errors.ErrCannotRemove(err)
-		return err
+
+	log.Printf("Worker %d: Merge işlemi tamamlandı - %s", w.ID, mergedFilePath)
+
+	// Callback varsa merge sonrası çağır
+	if job.OnMergeSuccess != nil {
+		job.OnMergeSuccess(job.UploadID, job.Filename, mergedFilePath)
 	}
 	return nil
 }

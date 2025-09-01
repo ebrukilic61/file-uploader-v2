@@ -17,4 +17,6 @@ type Job struct {
 	ChunkIndex  int
 	File        multipart.File
 	TotalChunks int
+
+	OnMergeSuccess func(uploadID, filename, mergedFilePath string)
 }
