@@ -8,4 +8,5 @@ const (
 	StatusCancelled  = "cancelled"
 	StatusQueued     = "queued"
 	StatusPending    = "pending"
+	StatusResized    = "resized"
 )

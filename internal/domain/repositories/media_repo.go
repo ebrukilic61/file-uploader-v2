@@ -1,6 +1,9 @@
 package repositories
 
-import "file-uploader/internal/domain/dto"
+import (
+	"file-uploader/internal/domain/dto"
+	"file-uploader/internal/domain/entities"
+)
 
 //* Single Responsibility Principle (SRP): Her repo sadece bir tabloya odaklanıyor, yönetimi ve test edilmesi kolay
 
@@ -25,4 +28,12 @@ type MediaSizeRepository interface {
 	GetAllSizes() ([]*dto.MediaSize, error)
 	UpdateSize(size *dto.MediaSize) error
 	DeleteSize(name string) error
+}
+
+type VideoRepository interface {
+	CreateVideo(video *dto.VideoDTO) error
+	GetVideoByID(id string) (*dto.VideoDTO, error)
+	ResizeWidth(video *entities.Video) error
+	ResizeHeight(video *entities.Video) error
+	ResizeVideo(video *entities.Video) error
 }

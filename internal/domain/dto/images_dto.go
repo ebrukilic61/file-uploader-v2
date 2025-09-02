@@ -26,3 +26,7 @@ type MediaSize struct {
 	Width       int    `json:"width"`
 	Height      int    `json:"height"`
 }
+
+type VariantRequestDTO struct {
+	FilePath string `json:"file_path"`
+}

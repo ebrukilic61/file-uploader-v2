@@ -20,7 +20,12 @@ func NewMediaRepository(db *gorm.DB) repositories.MediaRepository {
 }
 
 func (r *mediaRepository) CreateMedia(mediaDTO *dto.ImageDTO) error {
+	id, err := uuid.NewUUID()
+	if err != nil {
+		return err
+	}
 	entity := r.dtoToEntity(mediaDTO)
+	entity.ID = id
 	if err := r.db.Create(entity).Error; err != nil {
 		return err
 	}

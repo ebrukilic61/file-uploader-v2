@@ -7,15 +7,15 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
-	"time"
 
 	"file-uploader/internal/domain/dto"
 	"file-uploader/internal/domain/repositories"
+	"file-uploader/internal/infrastructure/processor"
 	"file-uploader/internal/infrastructure/queue"
 	consts "file-uploader/pkg/constants"
 	"file-uploader/pkg/errors"
+	"file-uploader/pkg/file"
 	fl "file-uploader/pkg/file"
 )
 
@@ -170,7 +170,7 @@ func (s *uploadService) CompleteUpload(req *dto.CompleteUploadRequestDTO) (*dto.
 		// Merge tamamlandığında çağrılacak callback
 		OnMergeSuccess: func(uploadID, filename, mergedFilePath string) {
 			if err := s.handleMergeSuccess(uploadID, filename, mergedFilePath); err != nil {
-				log.Printf("ERROR: handleMergeSuccess failed for %s: %v", filename, err)
+				log.Printf("ERROR: handleMergeSuccess hata verdi %s: %v", filename, err)
 			}
 		},
 	}
@@ -185,66 +185,15 @@ func (s *uploadService) CompleteUpload(req *dto.CompleteUploadRequestDTO) (*dto.
 }
 
 func (s *uploadService) handleMergeSuccess(uploadID, filename, mergedFilePath string) error {
-	if s.isImageFile(mergedFilePath) {
-		return s.processImageFile(uploadID, filename, mergedFilePath)
+	if file.IsImageFile(mergedFilePath) {
+		//return s.processImageFile(uploadID, filename, mergedFilePath)
+		return processor.ProcessImageFile(s.mediaService, filename, mergedFilePath)
 	}
-	log.Printf("INFO: Non-image file uploaded: %s", filename)
-	return nil
-}
-
-func (s *uploadService) isImageFile(filename string) bool {
-	ext := strings.ToLower(filepath.Ext(filename))
-	imageExtensions := []string{".png", ".jpg", ".jpeg", ".gif"}
-
-	for _, imgExt := range imageExtensions {
-		if ext == imgExt {
-			return true
-		}
+	if file.IsVideoFile(mergedFilePath) {
+		//return s.processVideoFile(uploadID, filename, mergedFilePath)
+		return processor.ProcessVideoFile(s.mediaService, filename, mergedFilePath)
 	}
-	return false
-}
-
-func (s *uploadService) getMimeTypeFromExtension(filename string) string {
-	ext := strings.ToLower(filepath.Ext(filename))
-	switch ext {
-	case ".png":
-		return "image/png"
-	case ".jpg", ".jpeg":
-		return "image/jpeg"
-	case ".gif":
-		return "image/gif"
-	default:
-		return "application/octet-stream"
-	}
-}
-
-// Image dosyasını işle ve media service'e gönder
-func (s *uploadService) processImageFile(uploadID, filename, finalFilePath string) error {
-	// ImageDTO oluştur
-	imageDTO := &dto.ImageDTO{
-		OriginalName: filename,
-		FileType:     s.getMimeTypeFromExtension(filename),
-		FilePath:     finalFilePath,
-		Status:       "processing",
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-	}
-
-	file, err := os.Open(finalFilePath)
-	if err != nil {
-		return fmt.Errorf("dosya açılamadı: %w", err)
-	}
-	defer file.Close()
-
-	if err := s.mediaService.CreateMedia(imageDTO, finalFilePath); err != nil {
-		return fmt.Errorf("media oluşturulamadı: %w", err)
-	}
-	//varyantları oluşturmak için:
-	if err := s.mediaService.CreateVariantsForMedia(imageDTO.ID, finalFilePath); err != nil {
-		return fmt.Errorf("media varyantları oluşturulamadı: %w", err)
-	}
-
-	log.Printf("INFO: Image %s başarıyla işlendi ve DB’ye kaydedildi. Path: %s", filename, imageDTO.FilePath)
+	log.Printf("INFO: image olmayan bir dosya yüklendi: %s", filename)
 	return nil
 }
 

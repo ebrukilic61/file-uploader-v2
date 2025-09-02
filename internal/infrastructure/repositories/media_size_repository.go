@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"file-uploader/internal/domain/dto"
+	"file-uploader/internal/domain/entities"
 	"file-uploader/internal/domain/repositories"
 
 	"gorm.io/gorm"
@@ -47,7 +48,13 @@ func (r *mediaSizeRepository) GetSizeByName(name string) (*dto.MediaSize, error)
 }
 
 func (r *mediaSizeRepository) UpdateSize(size *dto.MediaSize) error {
-	return r.db.Save(size).Error
+	var existingSizes entities.MediaSize
+	if err := r.db.First(&existingSizes, "variant_type = ?", size.VariantType).Error; err != nil {
+		return err
+	}
+	existingSizes.Width = size.Width
+	existingSizes.Height = size.Height
+	return r.db.Save(&existingSizes).Error
 }
 
 func (r *mediaSizeRepository) DeleteSize(name string) error {

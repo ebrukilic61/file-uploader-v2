@@ -20,8 +20,9 @@ func SetupUploadRoutes(app *fiber.App, cfg *config.Config, database *gorm.DB) {
 	mediaRepo := infra_repo.NewMediaRepository(database)
 	variantRepo := infra_repo.NewMediaVariantRepository(database)
 	sizeRepo := infra_repo.NewMediaSizeRepository(database)
+	videoRepo := infra_repo.NewVideoRepository(database)
 
-	mediaService := usecases.NewMediaService(mediaRepo, variantRepo, sizeRepo, localStorage)
+	mediaService := usecases.NewMediaService(mediaRepo, variantRepo, sizeRepo, localStorage, videoRepo)
 
 	cleanupUC := usecases.NewCleanupService(fileRepo)
 	c := cron.New(cron.WithSeconds())

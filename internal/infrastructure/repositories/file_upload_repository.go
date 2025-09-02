@@ -221,6 +221,8 @@ func (r *fileUploadRepository) MergeChunks(uploadID, filename string, totalChunk
 	finalPath := ""
 	if isImageFile {
 		finalPath = filepath.Join(r.uploadsDir, "media", "original", finalFileName)
+	} else if file.IsVideoFile(finalFileName) {
+		finalPath = filepath.Join(r.uploadsDir, "videos", "original", finalFileName)
 	} else {
 		finalPath = filepath.Join(r.uploadsDir, "other", finalFileName) //* video için de isVideoFile fonksiyonu yazılıp buraya eklenecek!!!
 	}
