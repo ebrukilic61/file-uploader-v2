@@ -117,12 +117,3 @@ func (r *mediaRepository) entitiesToDTOs(entities []entities.Image) []*dto.Image
 	}
 	return dtos
 }
-
-// Helper function for bulk DTO to Entity conversion
-func (r *mediaRepository) dtosToEntities(dtos []*dto.ImageDTO) []entities.Image {
-	var entities []entities.Image
-	for _, dto := range dtos {
-		entities = append(entities, *r.dtoToEntity(dto))
-	}
-	return entities
-}

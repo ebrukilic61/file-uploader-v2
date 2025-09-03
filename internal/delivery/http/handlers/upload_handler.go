@@ -130,16 +130,6 @@ func (h *UploadHandler) CompleteUpload(c *fiber.Ctx) error {
 		})
 	}
 
-	/*
-		if _, processing := h.processingUploads.LoadOrStore(req.UploadID, true); processing {
-			return c.Status(409).JSON(dto.ErrorResponse{
-				Error: "Upload zaten işleniyor",
-			})
-		}
-
-		defer h.processingUploads.Delete(req.UploadID)
-	*/
-
 	response, err := h.uploadService.CompleteUpload(req)
 	if err != nil {
 		return c.Status(400).JSON(dto.ErrorResponse{

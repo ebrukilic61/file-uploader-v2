@@ -9,9 +9,9 @@ import (
 
 func AutoMigrate(db *gorm.DB) error {
 	err := db.AutoMigrate(
-		//&entities.Image{},
-		//&entities.MediaVariant{},
-		//&entities.MediaSize{},
+		&entities.Image{},
+		&entities.MediaVariant{},
+		&entities.MediaSize{},
 		&entities.Video{},
 	)
 	if err != nil {

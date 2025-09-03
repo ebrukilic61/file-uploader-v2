@@ -23,20 +23,28 @@ func (h *MediaHandler) CreateMedia(c *fiber.Ctx) error {
 	var media dto.ImageDTO
 	id := uuid.New()
 	media.ID = id.String()
+
 	file, err := c.FormFile("file")
 	media.OriginalName = file.Filename
 	media.Status = "processing"
+
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "file is required"})
 	}
+
 	savePath := fmt.Sprintf("./uploads/media/original/%s_%s", media.ID, file.Filename)
+
+	if err := os.MkdirAll("./uploads/media/original", os.ModePerm); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "belirtilen dosya yolu oluşturulamadı"})
+	}
+
 	if err := c.SaveFile(file, savePath); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to save file"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "dosya kaydedilemedi"})
 	}
 	media.FilePath = savePath
 	media.FileType = file.Header.Get("Content-Type")
 	if err := h.repo.CreateMedia(&media, savePath); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to create media"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "media oluşturulamadı"})
 	}
 	return c.JSON(media)
 }
@@ -45,7 +53,7 @@ func (h *MediaHandler) GetMedia(c *fiber.Ctx) error {
 	id := c.Params("id")
 	media, err := h.repo.GetMediaByID(id)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "media not found"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "media bulunamadı"})
 	}
 	return c.JSON(media)
 }
@@ -59,7 +67,7 @@ func (h *MediaHandler) UpdateMediaStatus(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request"})
 	}
 	if err := h.repo.UpdateMediaStatus(id, status.Status); err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "media not found"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "media bulunamadı"})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -67,7 +75,7 @@ func (h *MediaHandler) UpdateMediaStatus(c *fiber.Ctx) error {
 func (h *MediaHandler) GetAllMedia(c *fiber.Ctx) error {
 	media, err := h.repo.GetAllMedia()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to retrieve media"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "media alınamadı"})
 	}
 	return c.JSON(media)
 }
@@ -79,7 +87,7 @@ func (h *MediaHandler) CreateSize(c *fiber.Ctx) error {
 	}
 	if err := h.repo.CreateSize(&size); err != nil {
 		fmt.Println("db insert error: ", err)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to create media size"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "media boyutu oluşturulamadı"})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -90,7 +98,7 @@ func (h *MediaHandler) UpdateSize(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request"})
 	}
 	if err := h.repo.UpdateSize(&size); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to update media size"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "media boyutu güncellenemedi"})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -99,7 +107,7 @@ func (h *MediaHandler) GetVideoByID(c *fiber.Ctx) error {
 	id := c.Params("video_id")
 	video, err := h.repo.GetVideoByID(id)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "video not found"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "video bulunamadı"})
 	}
 	return c.JSON(video)
 }
@@ -114,10 +122,10 @@ func (h *MediaHandler) ResizeByWidth(c *fiber.Ctx) error {
 	}
 	video, err := h.repo.GetVideoByID(id)
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "video not found"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "video bulunamadı"})
 	}
 	if err := h.repo.ResizeByWidth(id, req.Width, video); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to resize video"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "video yeniden boyutlandırılamadı"})
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -198,6 +206,7 @@ func (h *MediaHandler) CreateVideo(c *fiber.Ctx) error {
 	video.FileType = fileHeader.Header.Get("Content-Type")
 
 	saveDir := "./uploads/videos/original"
+
 	if err := os.MkdirAll(saveDir, os.ModePerm); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to create upload directory"})
 	}

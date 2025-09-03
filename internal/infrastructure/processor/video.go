@@ -2,12 +2,10 @@ package processor
 
 import (
 	"file-uploader/internal/domain/dto"
+	"file-uploader/pkg/helper"
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/mowshon/moviego"
@@ -17,7 +15,7 @@ import (
 func ProcessVideoFile(mediaService MediaService, filename, finalFilePath string) error {
 	videoDTO := &dto.VideoDTO{
 		OriginalName: filename,
-		FileType:     getMimeTypeFromExtension(filename),
+		FileType:     helper.GetMimeTypeFromExtension(filename),
 		FilePath:     finalFilePath,
 		Status:       "processing",
 		Height:       0,
@@ -86,22 +84,4 @@ func ResizeByHeight(inputPath, outputPath string, height int64) error {
 	}
 
 	return nil
-}
-
-func GetVideoDimensions(filePath string) (int64, int64, error) {
-	cmd := exec.Command("ffprobe",
-		"-v", "error",
-		"-select_streams", "v:0",
-		"-show_entries", "stream=width,height",
-		"-of", "csv=p=0",
-		filePath,
-	)
-	out, err := cmd.Output()
-	if err != nil {
-		return 0, 0, err
-	}
-	parts := strings.Split(strings.TrimSpace(string(out)), ",")
-	w, _ := strconv.ParseInt(parts[0], 10, 64)
-	h, _ := strconv.ParseInt(parts[1], 10, 64)
-	return w, h, nil
 }

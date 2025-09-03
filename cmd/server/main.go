@@ -17,6 +17,11 @@ import (
 	"file-uploader/internal/delivery/http/routers"
 	"file-uploader/internal/infrastructure/db"
 
+	_ "file-uploader/migrations"
+
+	_ "github.com/lib/pq"
+	"github.com/pressly/goose/v3"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -27,8 +32,22 @@ func main() {
 	cfg := config.LoadConfig()
 	database, err := db.NewPostgresDB()
 	if err != nil {
-		log.Fatalf("DB connection failed: %v", err)
+		log.Fatalf("DB bağlantısı başarısız: %v", err)
 	}
+
+	sqlDB, err := database.DB()
+	if err != nil {
+		log.Fatalf("sql.DB alınamadı: %v", err)
+	}
+
+	if os.Getenv("RUN_AUTO_MIGRATION") == "true" { //* Bu kodu kontrol etmen lazım!
+		if err := goose.Up(sqlDB, "."); err != nil {
+			log.Fatalf("failed to apply migrations: %v", err)
+		}
+	}
+
+	config.EnsureDirs()
+	goose.SetBaseFS(nil)
 
 	app := fiber.New(fiber.Config{
 		BodyLimit: int(cfg.Upload.MaxFileSize),

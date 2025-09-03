@@ -15,8 +15,8 @@ import (
 	"file-uploader/internal/infrastructure/queue"
 	consts "file-uploader/pkg/constants"
 	"file-uploader/pkg/errors"
-	"file-uploader/pkg/file"
 	fl "file-uploader/pkg/file"
+	"file-uploader/pkg/helper"
 )
 
 type UploadService interface {
@@ -185,11 +185,11 @@ func (s *uploadService) CompleteUpload(req *dto.CompleteUploadRequestDTO) (*dto.
 }
 
 func (s *uploadService) handleMergeSuccess(uploadID, filename, mergedFilePath string) error {
-	if file.IsImageFile(mergedFilePath) {
+	if helper.IsImageFile(mergedFilePath) {
 		//return s.processImageFile(uploadID, filename, mergedFilePath)
 		return processor.ProcessImageFile(s.mediaService, filename, mergedFilePath)
 	}
-	if file.IsVideoFile(mergedFilePath) {
+	if helper.IsVideoFile(mergedFilePath) {
 		//return s.processVideoFile(uploadID, filename, mergedFilePath)
 		return processor.ProcessVideoFile(s.mediaService, filename, mergedFilePath)
 	}

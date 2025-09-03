@@ -5,6 +5,7 @@ import (
 	"file-uploader/internal/domain/entities"
 	"file-uploader/internal/domain/repositories"
 	"file-uploader/internal/infrastructure/processor"
+	"file-uploader/pkg/helper"
 	"fmt"
 	"log"
 	"os"
@@ -170,7 +171,7 @@ func (s *mediaService) GetVideoByID(id string) (*dto.VideoDTO, error) {
 func (s *mediaService) ResizeByWidth(id string, width int64, video *dto.VideoDTO) error {
 	inputPath := fmt.Sprintf("./uploads/videos/original/%s%s", video.VideoID, filepath.Ext(video.FilePath))
 	if video.Width <= 0 || video.Height <= 0 {
-		origWidth, origHeight, err := processor.GetVideoDimensions(inputPath)
+		origWidth, origHeight, err := helper.GetVideoDimensions(inputPath)
 		log.Printf("Orijinal video boyutları: %dx%d", origWidth, origHeight)
 		if err != nil {
 			return fmt.Errorf("orijinal video boyutu alınamadı: %w", err)

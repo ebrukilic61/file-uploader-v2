@@ -2,11 +2,11 @@ package processor
 
 import (
 	"file-uploader/internal/domain/dto"
+	"file-uploader/pkg/helper"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/disintegration/imaging"
@@ -29,7 +29,7 @@ type MediaService interface {
 func ProcessImageFile(mediaService MediaService, filename, finalFilePath string) error {
 	imageDTO := &dto.ImageDTO{
 		OriginalName: filename,
-		FileType:     getMimeTypeFromExtension(filename),
+		FileType:     helper.GetMimeTypeFromExtension(filename),
 		FilePath:     finalFilePath,
 		Status:       "processing",
 		CreatedAt:    time.Now(),
@@ -52,25 +52,6 @@ func ProcessImageFile(mediaService MediaService, filename, finalFilePath string)
 
 	log.Printf("INFO: Image %s başarıyla işlendi. Path: %s", filename, imageDTO.FilePath)
 	return nil
-}
-
-func getMimeTypeFromExtension(filename string) string {
-	switch strings.ToLower(filepath.Ext(filename)) {
-	case ".png":
-		return "image/png"
-	case ".jpg", ".jpeg":
-		return "image/jpeg"
-	case ".gif":
-		return "image/gif"
-	case ".mp4":
-		return "video/mp4"
-	case ".avi":
-		return "video/avi"
-	case ".mkv":
-		return "video/mkv"
-	default:
-		return "application/octet-stream"
-	}
 }
 
 func ResizeImage(inputPath, outputPath string, options ResizeOption) (string, error) {
@@ -106,7 +87,7 @@ func ResizeAndSaveMultiple(inputPath, outputDir string, options []ResizeOption) 
 			fmt.Sprintf("resized_%dx%d_%s", opt.Width, opt.Height, base),
 		)
 
-		// JPEG kalite ayarı ile kaydet
+		// JPEG kalite ayarı ile kaydet:
 		err := imaging.Save(resizedImg, outputPath, imaging.JPEGQuality(opt.Quality))
 		if err != nil {
 			return savedFiles, fmt.Errorf("dosya kaydedilemedi: %w", err)

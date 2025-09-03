@@ -3,6 +3,7 @@ package repositories
 import (
 	"file-uploader/internal/domain/dto"
 	"file-uploader/internal/domain/entities"
+	"file-uploader/pkg/constants"
 	"time"
 
 	"github.com/google/uuid"
@@ -87,7 +88,7 @@ func (r *VideoRepository) ResizeVideo(video *entities.Video) error {
 	}
 	existingVideo.Width = video.Width
 	existingVideo.Height = video.Height
-	existingVideo.Status = "resized"
+	existingVideo.Status = constants.VideoStatusResized
 	existingVideo.FilePath = video.FilePath
 	return r.db.Save(&existingVideo).Error
 }

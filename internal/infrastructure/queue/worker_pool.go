@@ -9,8 +9,8 @@ import (
 type WorkerPool struct {
 	JobChan chan Job
 	wg      sync.WaitGroup
-	ctx     context.Context
-	cancel  context.CancelFunc
+	ctx     context.Context    //graceful shutdown için
+	cancel  context.CancelFunc //graceful shutdown için
 }
 
 func NewWorkerPool(workerCount int, repo repositories.FileUploadRepository) *WorkerPool {

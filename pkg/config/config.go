@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -109,15 +110,18 @@ func getEnvAsInt64(key string, defaultValue int64) int64 {
 	return defaultValue
 }
 
-func ensureDir(dir string) error {
-	// Mutlak yol
-	if !filepath.IsAbs(dir) {
-		// Proje kökü:
-		projectRoot, err := findProjectRoot()
-		if err != nil {
-			return err
-		}
-		dir = filepath.Join(projectRoot, dir)
+func EnsureDirs() {
+	dirs := []string{
+		"./uploads/media/original",
+		"./uploads/media/variants",
+		"./uploads/other",
+		"./uploads/videos/original",
+		"./uploads/videos/resized",
 	}
-	return os.MkdirAll(dir, 0755)
+
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+			log.Fatalf("klasörler oluşturulamadı %s: %v", dir, err)
+		}
+	}
 }
