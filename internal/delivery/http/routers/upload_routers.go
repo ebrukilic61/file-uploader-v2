@@ -2,39 +2,12 @@ package routers
 
 import (
 	"file-uploader/internal/delivery/http/handlers"
-	infra_repo "file-uploader/internal/infrastructure/repositories"
-	"file-uploader/internal/infrastructure/storage"
 	"file-uploader/internal/usecases"
-	"file-uploader/pkg/config"
-	"log"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/robfig/cron/v3"
-	"gorm.io/gorm"
 )
 
-func SetupUploadRoutes(app *fiber.App, cfg *config.Config, database *gorm.DB) {
-	fileRepo := infra_repo.NewFileUploadRepository(cfg.Upload.TempDir, cfg.Upload.UploadsDir)
-	localStorage := storage.NewLocalStorage(cfg.Upload.UploadsDir) // Genel dosya yüklemeleri
-	mediaRepo := infra_repo.NewMediaRepository(database)
-	variantRepo := infra_repo.NewMediaVariantRepository(database)
-	sizeRepo := infra_repo.NewMediaSizeRepository(database)
-	videoRepo := infra_repo.NewVideoRepository(database)
-
-	mediaService := usecases.NewMediaService(mediaRepo, variantRepo, sizeRepo, localStorage, videoRepo)
-
-	cleanupUC := usecases.NewCleanupService(fileRepo)
-	c := cron.New(cron.WithSeconds())
-
-	c.AddFunc("0 */5 * * * *", func() {
-		if err := cleanupUC.CleanupOldTempFiles(24 * time.Hour); err != nil {
-			log.Printf("Error cleaning up old temp files: %v", err)
-		}
-	})
-	c.Start() // cron job'u başlatır
-
-	uploadService := usecases.NewUploadService(fileRepo, localStorage, mediaService)
+func SetupUploadRoutes(app *fiber.App, uploadService usecases.UploadService) {
 
 	uploadHandler := handlers.NewUploadHandler(uploadService)
 

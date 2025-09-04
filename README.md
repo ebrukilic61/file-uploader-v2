@@ -183,3 +183,4 @@ Form fields:
 - Paralel upload desteği
 - Geçici dosyalar otomatik temizlenir
 - Memory-efficient streaming işlemler
+"# file-uploader-v3" 

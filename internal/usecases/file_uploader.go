@@ -1,10 +1,11 @@
 package usecases
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"mime/multipart"
-	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -17,6 +18,8 @@ import (
 	"file-uploader/pkg/errors"
 	fl "file-uploader/pkg/file"
 	"file-uploader/pkg/helper"
+
+	"github.com/go-redis/redis/v8"
 )
 
 type UploadService interface {
@@ -24,30 +27,35 @@ type UploadService interface {
 	UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *multipart.FileHeader) (*dto.UploadChunkResponse, error)
 	CompleteUpload(req *dto.CompleteUploadRequestDTO) (*dto.CompleteUploadResponse, error)
 	CancelUpload(req *dto.CancelUploadRequestDTO) (*dto.CancelUploadResponse, error)
-	Shutdown() // worker pool'u kapatmak için
+	HandleMergeSuccess(uploadID, filename, mergedFilePath string) error
+	//Shutdown() // worker pool'u kapatmak için
 }
 
-type uploadService struct {
-	repo         repositories.FileUploadRepository
-	storage      repositories.StorageStrategy
-	mu           sync.Mutex
-	workerPool   *queue.WorkerPool
+type uploadService struct { //* sadece jobları kuyruğa atacak
+	repo    repositories.FileUploadRepository
+	storage repositories.StorageStrategy
+	mu      sync.Mutex
+	//workerPool   *queue.WorkerPool
+	rdb          *redis.Client
 	mediaService MediaService
 }
 
-func NewUploadService(repo repositories.FileUploadRepository, storage repositories.StorageStrategy, mediaService MediaService) UploadService {
-	workerCount := 5
-	if val, ok := os.LookupEnv("WORKER_POOL_SIZE"); ok {
-		if wc, err := strconv.Atoi(val); err == nil {
-			workerCount = wc
+func NewUploadService(repo repositories.FileUploadRepository, storage repositories.StorageStrategy, rdb *redis.Client, mediaService MediaService) UploadService {
+	/*
+		workerCount := 5
+		if val, ok := os.LookupEnv("WORKER_POOL_SIZE"); ok {
+			if wc, err := strconv.Atoi(val); err == nil {
+				workerCount = wc
+			}
 		}
-	}
-	workerPool := queue.NewWorkerPool(workerCount, repo) // 5 worker ile başlatalım
+	*/
+	//workerPool := queue.NewWorkerPool(workerCount, repo) // 5 worker ile başlatalım
 	return &uploadService{
-		repo:         repo,
-		storage:      storage,
-		mu:           sync.Mutex{}, //sonradan ekledim
-		workerPool:   workerPool,
+		repo:    repo,
+		storage: storage,
+		mu:      sync.Mutex{}, //sonradan ekledim
+		//workerPool:   workerPool,
+		rdb:          rdb,
 		mediaService: mediaService,
 	}
 }
@@ -102,7 +110,7 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 		return nil, errors.ErrFileCantOpen(err)
 	}
 	defer file.Close()
-
+	chunkPath := ""
 	// Hash doğrulama (eğer gerekiyorsa)
 	if req.ChunkHash != "" {
 		// Geçici olarak kaydet ve hash doğrula
@@ -115,7 +123,7 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 		file.Close()
 
 		// Hash doğrulama için dosya yolu:
-		chunkPath := filepath.Join("temp_uploads", req.UploadID, fmt.Sprintf("%s.part%d", safeFilename, idx))
+		chunkPath = filepath.Join("temp_uploads", req.UploadID, fmt.Sprintf("%s.part%d", safeFilename, idx))
 
 		if err := fl.ValidateFileHash(chunkPath, req.ChunkHash); err != nil {
 			s.repo.CleanupTempFiles(req.UploadID)
@@ -131,6 +139,7 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 		}, nil
 	} else {
 		// Hash doğrulama yoksa direkt kaydet
+		chunkPath = filepath.Join("temp_uploads", req.UploadID, fmt.Sprintf("%s.part%d", safeFilename, idx))
 		if err := s.repo.SaveChunk(req.UploadID, safeFilename, idx, file); err != nil {
 			s.repo.CleanupTempFiles(req.UploadID)
 			return nil, errors.ErrTmpFile(err)
@@ -142,10 +151,16 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 		Type:       queue.JobSaveChunk,
 		Filename:   safeFilename,
 		ChunkIndex: idx,
-		File:       file,
+		FilePath:   chunkPath,
 	}
 
-	s.workerPool.AddJob(chunkJob)
+	//s.workerPool.AddJob(chunkJob)
+	serialized, err := json.Marshal(chunkJob)
+	if err != nil {
+		log.Println("Failed to serialize chunk job:", err)
+		return nil, err
+	}
+	s.rdb.LPush(context.Background(), "job_queue", serialized)
 
 	return &dto.UploadChunkResponse{
 		Status:     consts.StatusQueued,
@@ -167,15 +182,16 @@ func (s *uploadService) CompleteUpload(req *dto.CompleteUploadRequestDTO) (*dto.
 		Type:        queue.JobMerge,
 		Filename:    safeFilename,
 		TotalChunks: req.TotalChunks,
-		// Merge tamamlandığında çağrılacak callback
-		OnMergeSuccess: func(uploadID, filename, mergedFilePath string) {
-			if err := s.handleMergeSuccess(uploadID, filename, mergedFilePath); err != nil {
-				log.Printf("ERROR: handleMergeSuccess hata verdi %s: %v", filename, err)
-			}
-		},
 	}
 
-	s.workerPool.AddJob(mergeJob)
+	//s.workerPool.AddJob(mergeJob)
+	serialized, err := json.Marshal(mergeJob)
+	if err != nil {
+		log.Printf("Merge job marshal failed: %v", err)
+	} else {
+		log.Printf("Merge job serialized: %s", string(serialized))
+	}
+	s.rdb.LPush(context.Background(), "job_queue", serialized)
 
 	return &dto.CompleteUploadResponse{
 		Status:   consts.StatusQueued,
@@ -184,13 +200,11 @@ func (s *uploadService) CompleteUpload(req *dto.CompleteUploadRequestDTO) (*dto.
 	}, nil
 }
 
-func (s *uploadService) handleMergeSuccess(uploadID, filename, mergedFilePath string) error {
+func (s *uploadService) HandleMergeSuccess(uploadID, filename, mergedFilePath string) error {
 	if helper.IsImageFile(mergedFilePath) {
-		//return s.processImageFile(uploadID, filename, mergedFilePath)
 		return processor.ProcessImageFile(s.mediaService, filename, mergedFilePath)
 	}
 	if helper.IsVideoFile(mergedFilePath) {
-		//return s.processVideoFile(uploadID, filename, mergedFilePath)
 		return processor.ProcessVideoFile(s.mediaService, filename, mergedFilePath)
 	}
 	log.Printf("INFO: image olmayan bir dosya yüklendi: %s", filename)
@@ -207,7 +221,9 @@ func (s *uploadService) CancelUpload(req *dto.CancelUploadRequestDTO) (*dto.Canc
 		Type:     queue.JobCleanup,
 	}
 
-	s.workerPool.AddJob(cleanupJob)
+	//s.workerPool.AddJob(cleanupJob)
+	serialized, _ := json.Marshal(cleanupJob)
+	s.rdb.LPush(context.Background(), "job_queue", serialized)
 
 	return &dto.CancelUploadResponse{
 		Status:  consts.StatusQueued,
@@ -215,9 +231,11 @@ func (s *uploadService) CancelUpload(req *dto.CancelUploadRequestDTO) (*dto.Canc
 	}, nil
 }
 
+/*
 // Shutdown worker pool
 func (s *uploadService) Shutdown() {
 	if s.workerPool != nil {
 		s.workerPool.Shutdown()
 	}
 }
+*/

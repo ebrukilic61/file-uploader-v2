@@ -2,18 +2,20 @@ package queue
 
 import (
 	"context"
+	"encoding/json"
 	"file-uploader/internal/domain/repositories"
-	"file-uploader/pkg/errors"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 )
 
 type Worker struct {
-	ID      int        // worker id
-	JobChan <-chan Job // iş kuyruğu
-	Wg      *sync.WaitGroup
-	Repo    repositories.FileUploadRepository
+	ID            int        // worker id
+	JobChan       <-chan Job // iş kuyruğu
+	Wg            *sync.WaitGroup
+	Repo          repositories.FileUploadRepository
+	MergeCallback func(uploadID, filename, mergedFilePath string)
 }
 
 type WorkerMedia struct {
@@ -97,13 +99,30 @@ func (w *Worker) processJob(job Job) {
 }
 
 func (w *Worker) processSaveChunk(job Job) error {
-	if job.File == nil {
-		return fmt.Errorf("file is nil")
-	}
-	defer job.File.Close()
+	/*
+		if job.File == nil {
+			return fmt.Errorf("file is nil")
+		}
+		defer job.File.Close()
 
-	if err := w.Repo.SaveChunk(job.UploadID, job.Filename, job.ChunkIndex, job.File); err != nil {
-		errors.ErrChunkNotSave(err)
+		if err := w.Repo.SaveChunk(job.UploadID, job.Filename, job.ChunkIndex, job.File); err != nil {
+			errors.ErrChunkNotSave(err)
+			w.Repo.CleanupTempFiles(job.UploadID) // Hata durumunda temp dosyaları temizler
+			return err
+		}
+		return nil
+	*/
+	if job.FilePath == "" {
+		return fmt.Errorf("file path is empty")
+	}
+
+	file, err := os.Open(job.FilePath)
+	if err != nil {
+		return fmt.Errorf("failed to open chunk file: %w", err)
+	}
+	defer file.Close()
+
+	if err := w.Repo.SaveChunk(job.UploadID, job.Filename, job.ChunkIndex, file); err != nil {
 		w.Repo.CleanupTempFiles(job.UploadID) // Hata durumunda temp dosyaları temizler
 		return err
 	}
@@ -122,12 +141,34 @@ func (w *Worker) processMergeChunks(job Job) error {
 	log.Printf("Worker %d: Merge işlemi tamamlandı - %s", w.ID, mergedFilePath)
 
 	// Callback varsa merge sonrası çağır
-	if job.OnMergeSuccess != nil {
-		job.OnMergeSuccess(job.UploadID, job.Filename, mergedFilePath)
+	if w.MergeCallback != nil {
+		w.MergeCallback(job.UploadID, job.Filename, mergedFilePath)
 	}
+
+	/*
+		if job.OnMergeSuccess != nil {
+			job.OnMergeSuccess(job.UploadID, job.Filename, mergedFilePath)
+		}
+	*/
 	return nil
 }
 
 func (w *Worker) processCleanup(job Job) error {
 	return w.Repo.CleanupTempFiles(job.UploadID)
+}
+
+func DeserializeJob(data string) (*Job, error) {
+	var job Job
+	if err := json.Unmarshal([]byte(data), &job); err != nil {
+		return nil, fmt.Errorf("failed to deserialize job: %w", err)
+	}
+	return &job, nil
+}
+
+func SerializeJob(job Job) (string, error) {
+	bytes, err := json.Marshal(job)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize job: %w", err)
+	}
+	return string(bytes), nil
 }

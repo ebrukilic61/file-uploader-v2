@@ -1,7 +1,5 @@
 package queue
 
-import "mime/multipart"
-
 type JobType string
 
 const (
@@ -11,12 +9,19 @@ const (
 )
 
 type Job struct {
-	UploadID    string
-	Type        JobType
-	Filename    string
-	ChunkIndex  int
-	File        multipart.File
+	UploadID   string
+	Type       JobType
+	Filename   string
+	ChunkIndex int
+	//File        multipart.File
+	FilePath    string `json:"file_path,omitempty"` // chunk dosya yolu
 	TotalChunks int
 
-	OnMergeSuccess func(uploadID, filename, mergedFilePath string)
+	//OnMergeSuccess func(uploadID, filename, mergedFilePath string)
+}
+
+type ProcessedJob struct {
+	UploadID       string `json:"upload_id"`
+	Filename       string `json:"filename"`
+	MergedFilePath string `json:"merged_file_path"`
 }

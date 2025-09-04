@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-type fileUploadRepository struct {
+type FileUploadRepository struct {
 	tempDir      string
 	uploadsDir   string
 	mergedChunks map[string]int // key: uploadID + filename, value: merged chunk sayısı
@@ -25,12 +25,12 @@ type fileUploadRepository struct {
 	opsMutex     sync.Mutex
 }
 
-func (r *fileUploadRepository) UploadsDir() string {
+func (r *FileUploadRepository) UploadsDir() string {
 	return r.uploadsDir
 }
 
-func NewFileUploadRepository(tempDir, uploadsDir string) *fileUploadRepository {
-	return &fileUploadRepository{
+func NewFileUploadRepository(tempDir, uploadsDir string) *FileUploadRepository {
+	return &FileUploadRepository{
 		tempDir:      tempDir,
 		uploadsDir:   uploadsDir,
 		mergedChunks: make(map[string]int),
@@ -38,13 +38,13 @@ func NewFileUploadRepository(tempDir, uploadsDir string) *fileUploadRepository {
 	}
 }
 
-func (r *fileUploadRepository) incrementActiveOps(uploadID string) {
+func (r *FileUploadRepository) incrementActiveOps(uploadID string) {
 	r.opsMutex.Lock()
 	defer r.opsMutex.Unlock()
 	r.activeOps[uploadID]++
 }
 
-func (r *fileUploadRepository) decrementActiveOps(uploadID string) {
+func (r *FileUploadRepository) decrementActiveOps(uploadID string) {
 	r.opsMutex.Lock()
 	defer r.opsMutex.Unlock()
 	r.activeOps[uploadID]--
@@ -53,13 +53,13 @@ func (r *fileUploadRepository) decrementActiveOps(uploadID string) {
 	}
 }
 
-func (r *fileUploadRepository) getActiveOps(uploadID string) int {
+func (r *FileUploadRepository) getActiveOps(uploadID string) int {
 	r.opsMutex.Lock()
 	defer r.opsMutex.Unlock()
 	return r.activeOps[uploadID]
 }
 
-func (r *fileUploadRepository) SaveChunk(uploadID, filename string, chunkIndex int, file multipart.File) error {
+func (r *FileUploadRepository) SaveChunk(uploadID, filename string, chunkIndex int, file multipart.File) error {
 	r.incrementActiveOps(uploadID)
 	defer r.decrementActiveOps(uploadID)
 
@@ -117,14 +117,14 @@ func (r *fileUploadRepository) SaveChunk(uploadID, filename string, chunkIndex i
 	return nil
 }
 
-func (r *fileUploadRepository) ChunkExists(uploadID, filename string, chunkIndex int) bool {
+func (r *FileUploadRepository) ChunkExists(uploadID, filename string, chunkIndex int) bool {
 	saveDir := filepath.Join(r.tempDir, uploadID)
 	finalPath := filepath.Join(saveDir, fmt.Sprintf("%s.part%d", filename, chunkIndex))
 	_, err := os.Stat(finalPath)
 	return err == nil
 }
 
-func (r *fileUploadRepository) SetUploadedChunks(uploadID, filename string, merged int) {
+func (r *FileUploadRepository) SetUploadedChunks(uploadID, filename string, merged int) {
 	r.chunkMutex.Lock()
 	defer r.chunkMutex.Unlock()
 
@@ -139,7 +139,7 @@ func (r *fileUploadRepository) SetUploadedChunks(uploadID, filename string, merg
 	fmt.Printf("DEBUG: SET - Key: %s, Chunk sayısı: %d\n", key, merged)
 }
 
-func (r *fileUploadRepository) GetUploadedChunks(uploadID, filename string) (int, bool) {
+func (r *FileUploadRepository) GetUploadedChunks(uploadID, filename string) (int, bool) {
 	r.chunkMutex.RLock()
 	defer r.chunkMutex.RUnlock()
 
@@ -155,7 +155,7 @@ func (r *fileUploadRepository) GetUploadedChunks(uploadID, filename string) (int
 	return merged, exists
 }
 
-func (r *fileUploadRepository) CleanupTempFiles(uploadID string) error {
+func (r *FileUploadRepository) CleanupTempFiles(uploadID string) error {
 	maxWait := 50 // 50 * 100ms = 5 saniye
 	for i := 0; i < maxWait; i++ {
 		if r.getActiveOps(uploadID) == 0 {
@@ -195,7 +195,7 @@ func (r *fileUploadRepository) CleanupTempFiles(uploadID string) error {
 	return fmt.Errorf("cleanup başarısız (3 deneme): %w", lastErr)
 }
 
-func (r *fileUploadRepository) cleanupChunkTracking(uploadID string) {
+func (r *FileUploadRepository) cleanupChunkTracking(uploadID string) {
 	r.chunkMutex.Lock()
 	defer r.chunkMutex.Unlock()
 
@@ -207,7 +207,7 @@ func (r *fileUploadRepository) cleanupChunkTracking(uploadID string) {
 	}
 }
 
-func (r *fileUploadRepository) MergeChunks(uploadID, filename string, totalChunks int) (string, error) {
+func (r *FileUploadRepository) MergeChunks(uploadID, filename string, totalChunks int) (string, error) {
 	r.incrementActiveOps(uploadID)
 	defer r.decrementActiveOps(uploadID)
 
@@ -309,7 +309,7 @@ func (r *fileUploadRepository) MergeChunks(uploadID, filename string, totalChunk
 }
 
 // Helper function: Chunk dosyalarını temizle
-func (r *fileUploadRepository) cleanupChunkFiles(saveDir, filename string, totalChunks int) {
+func (r *FileUploadRepository) cleanupChunkFiles(saveDir, filename string, totalChunks int) {
 	for i := 1; i <= totalChunks; i++ {
 		partPath := filepath.Join(saveDir, fmt.Sprintf("%s.part%d", filename, i))
 		if err := os.Remove(partPath); err != nil {
@@ -325,6 +325,6 @@ func (r *fileUploadRepository) cleanupChunkFiles(saveDir, filename string, total
 	}
 }
 
-func (r *fileUploadRepository) TempDir() string {
+func (r *FileUploadRepository) TempDir() string {
 	return r.tempDir
 }
