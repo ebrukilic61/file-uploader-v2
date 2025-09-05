@@ -3,7 +3,7 @@ package usecases
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"io"
 	"log"
 	"mime/multipart"
 	"path/filepath"
@@ -16,7 +16,6 @@ import (
 	"file-uploader/internal/infrastructure/queue"
 	consts "file-uploader/pkg/constants"
 	"file-uploader/pkg/errors"
-	fl "file-uploader/pkg/file"
 	"file-uploader/pkg/helper"
 
 	"github.com/go-redis/redis/v8"
@@ -110,40 +109,10 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 		return nil, errors.ErrFileCantOpen(err)
 	}
 	defer file.Close()
-	chunkPath := ""
-	// Hash doğrulama (eğer gerekiyorsa)
-	if req.ChunkHash != "" {
-		// Geçici olarak kaydet ve hash doğrula
-		tempSaveErr := s.repo.SaveChunk(req.UploadID, safeFilename, idx, file)
-		if tempSaveErr != nil {
-			// Temp cleanup (isteğe bağlı)
-			s.repo.CleanupTempFiles(req.UploadID)
-			return nil, errors.ErrTmpFile(tempSaveErr)
-		}
-		file.Close()
 
-		// Hash doğrulama için dosya yolu:
-		chunkPath = filepath.Join("temp_uploads", req.UploadID, fmt.Sprintf("%s.part%d", safeFilename, idx))
-
-		if err := fl.ValidateFileHash(chunkPath, req.ChunkHash); err != nil {
-			s.repo.CleanupTempFiles(req.UploadID)
-			log.Printf("WARN: Temp siliniyor: %v", err)
-			return nil, err
-		}
-
-		return &dto.UploadChunkResponse{
-			Status:     consts.StatusOK,
-			UploadID:   req.UploadID,
-			ChunkIndex: idx,
-			Filename:   safeFilename,
-		}, nil
-	} else {
-		// Hash doğrulama yoksa direkt kaydet
-		chunkPath = filepath.Join("temp_uploads", req.UploadID, fmt.Sprintf("%s.part%d", safeFilename, idx))
-		if err := s.repo.SaveChunk(req.UploadID, safeFilename, idx, file); err != nil {
-			s.repo.CleanupTempFiles(req.UploadID)
-			return nil, errors.ErrTmpFile(err)
-		}
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		return nil, errors.ErrTmpFile(err)
 	}
 
 	chunkJob := queue.Job{
@@ -151,10 +120,11 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 		Type:       queue.JobSaveChunk,
 		Filename:   safeFilename,
 		ChunkIndex: idx,
-		FilePath:   chunkPath,
+		//FilePath:   chunkPath,
+		FileContent: fileBytes,
+		ChunkHash:   req.ChunkHash,
 	}
 
-	//s.workerPool.AddJob(chunkJob)
 	serialized, err := json.Marshal(chunkJob)
 	if err != nil {
 		log.Println("Failed to serialize chunk job:", err)

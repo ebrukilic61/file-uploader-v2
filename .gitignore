@@ -1,3 +1,4 @@
 cmd/server/uploads/
 cmd/server/temp_uploads/
 .env
+docker-compose.yml

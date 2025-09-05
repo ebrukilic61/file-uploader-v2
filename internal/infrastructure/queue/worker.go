@@ -99,19 +99,6 @@ func (w *Worker) processJob(job Job) {
 }
 
 func (w *Worker) processSaveChunk(job Job) error {
-	/*
-		if job.File == nil {
-			return fmt.Errorf("file is nil")
-		}
-		defer job.File.Close()
-
-		if err := w.Repo.SaveChunk(job.UploadID, job.Filename, job.ChunkIndex, job.File); err != nil {
-			errors.ErrChunkNotSave(err)
-			w.Repo.CleanupTempFiles(job.UploadID) // Hata durumunda temp dosyaları temizler
-			return err
-		}
-		return nil
-	*/
 	if job.FilePath == "" {
 		return fmt.Errorf("file path is empty")
 	}

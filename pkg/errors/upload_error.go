@@ -46,4 +46,11 @@ var (
 	ErrChunksNotMerged = func(err error) *UploadError {
 		return &UploadError{Code: "chunks_not_merged", Message: "Chunklar birleştirilemedi", Err: err}
 	}
+	ErrMissingChunk = func(err error) *UploadError {
+		return &UploadError{
+			Code:    "missing_chunk",
+			Message: "Eksik chunk",
+			Err:     err,
+		}
+	}
 )

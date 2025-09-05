@@ -8,5 +8,6 @@
   "invalid_chunk": "Geçersiz chunk",
   "cannot_stat": "Dizin dosyası okunamadı",
   "cannot_remove": "Dosya kaldırılamadı",
-  "chunks_not_merged": "Chunklar birleştirilemedi"
+  "chunks_not_merged": "Chunklar birleştirilemedi",
+  "missing_chunk": "Eksik chunk"
 }

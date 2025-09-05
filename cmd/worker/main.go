@@ -3,16 +3,19 @@ package main //worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
-	"strings"
+	"path/filepath"
 	"time"
 
 	"file-uploader/internal/infrastructure/queue"
 	infra_repo "file-uploader/internal/infrastructure/repositories"
 	"file-uploader/internal/usecases"
 	"file-uploader/pkg/config"
+	fe "file-uploader/pkg/errors"
+	fl "file-uploader/pkg/file"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
@@ -70,24 +73,51 @@ func main() {
 			log.Printf("Error cleaning up old temp files: %v", err)
 		}
 	})
-	c.Start() // cron job'u başlatır
+	c.Start() // cron job'u başlatmak için
 }
 
 func processChunk(job *queue.Job, repo *infra_repo.FileUploadRepository) {
 	log.Printf("Processing chunk %d for file %s (UploadID: %s)", job.ChunkIndex, job.Filename, job.UploadID)
+	if exists := repo.ChunkExists(job.UploadID, job.Filename, job.ChunkIndex); exists {
+		log.Printf("Chunk %d for file %s already exists, skipping", job.ChunkIndex, job.Filename)
+		return
+	}
 
-	// If chunk processing is needed, do it here
-	// For now, we'll just log that the chunk was processed
-	// The actual chunk file should already be saved to disk from UploadChunk
+	// Diske kaydetmek için:
+	if err := repo.SaveChunkBytes(job.UploadID, job.Filename, job.ChunkIndex, job.FileContent); err != nil {
+		log.Printf("Failed to save chunk %d: %v", job.ChunkIndex, err)
+		return
+	}
 
-	log.Printf("Chunk %d processed successfully for %s", job.ChunkIndex, job.Filename)
+	// Chunk path:
+	chunkPath := filepath.Join("temp_uploads", job.UploadID, fmt.Sprintf("%s.part%d", job.Filename, job.ChunkIndex))
+
+	// Hash doğrulama:
+	if job.ChunkHash != "" {
+		if err := fl.ValidateFileHash(chunkPath, job.ChunkHash); err != nil {
+			log.Printf("Hash validation failed for chunk %d: %v", job.ChunkIndex, err)
+			repo.CleanupTempFiles(job.UploadID)
+			return
+		}
+	}
+
+	// Repo’yu güncellemek için:
+	if err := repo.SetUploadedChunks(job.UploadID, job.Filename, job.ChunkIndex); err != nil {
+		log.Printf("Failed to update uploaded chunks for %s: %v", job.Filename, err)
+		return
+	}
+	log.Printf("Chunk %d for file %s saved successfully", job.ChunkIndex, job.Filename)
 }
 
 func processMerge(job *queue.Job, repo *infra_repo.FileUploadRepository, rdb *redis.Client, ctx context.Context) {
+	//* exponential backoff ile merge işlemi gerçekleştirildi
 	const maxRetries = 5
-	const retryDelay = 3 * time.Second // her tekrar deneme arasında 3 saniye beklenecek
+	retryDelay := 2 * time.Second // her tekrar deneme arasında 2 saniye beklenecek
 
-	log.Printf("Starting merge process for %s (UploadID: %s, TotalChunks: %d)",
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+
+	log.Printf("Dosya %s için merge işlemi başlıyor (UploadID: %s, TotalChunks: %d)",
 		job.Filename, job.UploadID, job.TotalChunks)
 
 	var mergedFilePath string
@@ -95,13 +125,17 @@ func processMerge(job *queue.Job, repo *infra_repo.FileUploadRepository, rdb *re
 
 	for i := 0; i < maxRetries; i++ {
 		mergedFilePath, err = repo.MergeChunks(job.UploadID, job.Filename, job.TotalChunks)
-		if err != nil && strings.Contains(err.Error(), "eksik chunk") {
-			log.Printf("Chunk bulunamadı, %d/%d tekrar %v saniye sonra...", i+1, maxRetries, retryDelay)
-			time.Sleep(retryDelay)
-			continue
-		} else if err != nil {
-			log.Printf("Merge işlemi yapılamadı %s: %v", job.Filename, err)
-			return
+		if err != nil {
+			var uploadErr *fe.UploadError
+			if errors.As(err, &uploadErr) && uploadErr.Code == "missing_chunk" {
+				log.Printf("Eksik chunk hatası, %d/%d tekrar %v saniye sonra...", i+1, maxRetries, retryDelay)
+				time.Sleep(retryDelay)
+				retryDelay *= 2 // Exponential backoff
+				continue
+			} else {
+				log.Printf("Merge işlemi yapılamadı %s: %v", job.Filename, err)
+				return
+			}
 		} else {
 			log.Printf("Merge işlemi başarıyla gerçekleşti %s: %s", job.Filename, mergedFilePath)
 			break
@@ -109,7 +143,7 @@ func processMerge(job *queue.Job, repo *infra_repo.FileUploadRepository, rdb *re
 	}
 
 	if err != nil {
-		log.Printf("Merge işlemi %s işi için %d tekrar denemeden sonra başarısız oldu : %v", job.Filename, maxRetries, err)
+		log.Printf("Merge işlemi başarısız oldu %s: %v", job.Filename, err)
 		return
 	}
 

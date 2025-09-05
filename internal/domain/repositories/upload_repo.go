@@ -8,7 +8,7 @@ type FileUploadRepository interface {
 	//Chunk işlemleri
 	SaveChunk(uploadID, filename string, chunkIndex int, file multipart.File) error
 	ChunkExists(uploadID, filename string, chunkIndex int) bool
-	SetUploadedChunks(uploadID, filename string, merged int)
+	SetUploadedChunks(uploadID, filename string, merged int) error
 	GetUploadedChunks(uploadID, filename string) (int, bool)
 	// Dosya birleştirme / hash doğrulama / temizlik
 	MergeChunks(uploadID, filename string, totalChunks int) (string, error)

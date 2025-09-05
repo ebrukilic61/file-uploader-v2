@@ -83,7 +83,6 @@ func (r *FileUploadRepository) SaveChunk(uploadID, filename string, chunkIndex i
 	if err != nil {
 		return fmt.Errorf("geçici dosya oluşturulamadı: %w", err)
 	}
-	//defer tmpFile.Close()
 
 	var fileClosed bool
 	defer func() {
@@ -108,10 +107,40 @@ func (r *FileUploadRepository) SaveChunk(uploadID, filename string, chunkIndex i
 
 	if err := os.Rename(tmpPath, finalPath); err != nil {
 		if copyErr := fl.CopyFile(tmpPath, finalPath); copyErr != nil {
-			//		os.Remove(tmpPath)
 			return fmt.Errorf("chunk yazılamadı: %w", copyErr)
 		}
-		//		os.Remove(tmpPath)
+	}
+
+	return nil
+}
+
+func (r *FileUploadRepository) SaveChunkBytes(uploadID, filename string, chunkIndex int, data []byte) error {
+	r.incrementActiveOps(uploadID)
+	defer r.decrementActiveOps(uploadID)
+
+	r.fileMutex.Lock()
+	defer r.fileMutex.Unlock()
+
+	saveDir := filepath.Join(r.tempDir, uploadID)
+	if err := os.MkdirAll(saveDir, os.ModePerm); err != nil {
+		return fmt.Errorf("geçici klasör oluşturulamadı: %w", err)
+	}
+
+	finalPath := filepath.Join(saveDir, fmt.Sprintf("%s.part%d", filename, chunkIndex))
+	tmpPath := fmt.Sprintf("%s.tmp.%d", finalPath, time.Now().UnixNano())
+
+	if r.ChunkExists(uploadID, filename, chunkIndex) {
+		return nil
+	}
+
+	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+		return fmt.Errorf("geçici dosya oluşturulamadı: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, finalPath); err != nil {
+		if copyErr := fl.CopyFile(tmpPath, finalPath); copyErr != nil {
+			return fmt.Errorf("chunk yazılamadı: %w", copyErr)
+		}
 	}
 
 	return nil
@@ -124,7 +153,7 @@ func (r *FileUploadRepository) ChunkExists(uploadID, filename string, chunkIndex
 	return err == nil
 }
 
-func (r *FileUploadRepository) SetUploadedChunks(uploadID, filename string, merged int) {
+func (r *FileUploadRepository) SetUploadedChunks(uploadID, filename string, merged int) error {
 	r.chunkMutex.Lock()
 	defer r.chunkMutex.Unlock()
 
@@ -137,6 +166,7 @@ func (r *FileUploadRepository) SetUploadedChunks(uploadID, filename string, merg
 	r.mergedChunks[key] = merged
 
 	fmt.Printf("DEBUG: SET - Key: %s, Chunk sayısı: %d\n", key, merged)
+	return nil
 }
 
 func (r *FileUploadRepository) GetUploadedChunks(uploadID, filename string) (int, bool) {

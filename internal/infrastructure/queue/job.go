@@ -16,7 +16,8 @@ type Job struct {
 	//File        multipart.File
 	FilePath    string `json:"file_path,omitempty"` // chunk dosya yolu
 	TotalChunks int
-
+	ChunkHash   string `json:"chunk_hash,omitempty"`
+	FileContent []byte `json:"file_content,omitempty"`
 	//OnMergeSuccess func(uploadID, filename, mergedFilePath string)
 }
 

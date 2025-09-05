@@ -13,14 +13,62 @@ services:
     image: postgres:17-alpine
     container_name: fileuploader-postgres
     environment:
-      POSTGRES_USER: fileuploader
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: secret
-      POSTGRES_DB: fileuploaderdb
+      POSTGRES_DB: file_uploader
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: always
+  
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: fileuploader-server
+    environment:
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=1234
+      - DB_NAME=file_uploader
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
+      - UPLOAD_DIR=/file-uploader/cmd/server/uploads
+      - TEMP_UPLOAD_DIR=/file-uploader/cmd/server/temp_uploads
+      - MAX_FILE_SIZE_MB=5000
+      - CHUNK_SIZE_MB=10
+      - WORKER_POOL_SIZE=5
+      - JOB_QUEUE_SIZE=100
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+      - postgres
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: fileuploader-worker
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=1234
+      - DB_NAME=file_uploader
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
+      - UPLOAD_DIR=/file-uploader/cmd/server/uploads
+      - TEMP_UPLOAD_DIR=/file-uploader/cmd/server/temp_uploads
+      - WORKER_POOL_SIZE=5
+      - JOB_QUEUE_SIZE=100
+    depends_on:
+      - redis
+      - postgres 
 
 volumes:
   redis_data:

@@ -8,5 +8,6 @@
   "invalid_chunk": "Invalid chunk",
   "cannot_stat": "Cannot read directory file",
   "cannot_remove": "Cannot remove file",
-  "chunks_not_merged": "Chunks cannot be merged"
+  "chunks_not_merged": "Chunks cannot be merged",
+  "missing_chunk": "Missing chunk"
 }
