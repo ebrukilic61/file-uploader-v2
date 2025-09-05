@@ -27,7 +27,7 @@ type UploadService interface {
 	UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *multipart.FileHeader) (*dto.UploadChunkResponse, error)
 	CompleteUpload(req *dto.CompleteUploadRequestDTO) (*dto.CompleteUploadResponse, error)
 	CancelUpload(req *dto.CancelUploadRequestDTO) (*dto.CancelUploadResponse, error)
-	HandleMergeSuccess(uploadID, filename, mergedFilePath string) error
+	HandleMergeSuccess(uploadID, filename, mergedFilePath string, totalChunks int) error
 	//Shutdown() // worker pool'u kapatmak için
 }
 
@@ -200,7 +200,8 @@ func (s *uploadService) CompleteUpload(req *dto.CompleteUploadRequestDTO) (*dto.
 	}, nil
 }
 
-func (s *uploadService) HandleMergeSuccess(uploadID, filename, mergedFilePath string) error {
+func (s *uploadService) HandleMergeSuccess(uploadID, filename, mergedFilePath string, totalChunks int) error {
+	s.repo.SetUploadedChunks(uploadID, filename, totalChunks) //* status failed olarak gözüküyordu, bunu düzeltmek adına merge success'in başarılı olma durumunda status set edildi
 	if helper.IsImageFile(mergedFilePath) {
 		return processor.ProcessImageFile(s.mediaService, filename, mergedFilePath)
 	}

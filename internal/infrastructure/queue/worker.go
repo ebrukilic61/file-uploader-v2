@@ -145,11 +145,6 @@ func (w *Worker) processMergeChunks(job Job) error {
 		w.MergeCallback(job.UploadID, job.Filename, mergedFilePath)
 	}
 
-	/*
-		if job.OnMergeSuccess != nil {
-			job.OnMergeSuccess(job.UploadID, job.Filename, mergedFilePath)
-		}
-	*/
 	return nil
 }
 

@@ -40,6 +40,7 @@ type UploadChunkResponse struct {
 	ChunkIndex int    `json:"chunk_index"`
 	Filename   string `json:"filename"`
 	Message    string `json:"message,omitempty"`
+	//TotalChunks int    `json:"total_chunks,omitempty"` // opsiyonel
 }
 
 type CompleteUploadResponse struct {

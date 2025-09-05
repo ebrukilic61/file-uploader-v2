@@ -24,4 +24,5 @@ type ProcessedJob struct {
 	UploadID       string `json:"upload_id"`
 	Filename       string `json:"filename"`
 	MergedFilePath string `json:"merged_file_path"`
+	TotalChunks    int    `json:"total_chunks"`
 }

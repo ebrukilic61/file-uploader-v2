@@ -137,10 +137,12 @@ func startProcessedQueueListener(rdb *redis.Client, uploadService usecases.Uploa
 			continue
 		}
 
-		if err := uploadService.HandleMergeSuccess(processed.UploadID, processed.Filename, processed.MergedFilePath); err != nil {
+		if err := uploadService.HandleMergeSuccess(processed.UploadID, processed.Filename, processed.MergedFilePath, processed.TotalChunks); err != nil {
 			log.Printf("HandleMergeSuccess error: %v", err)
+			fmt.Printf("Total chunk sayısı: %d\n", processed.TotalChunks)
 		} else {
 			log.Printf("HandleMergeSuccess executed: %s", processed.Filename)
+			fmt.Printf("Total chunk sayısı: %d\n", processed.TotalChunks)
 		}
 	}
 }

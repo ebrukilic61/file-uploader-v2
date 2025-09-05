@@ -106,44 +106,23 @@ File-Uploader/
 
 ## API Endpoints
 
-### 1. Upload Status
+### 1. Upload Chunk
 ```
-GET /api/v1/upload/status?upload_id={upload_id}&filename={filename}
-```
-
-**Response:**
-```json
-{
-  "upload_id": "test-123",
-  "filename": "test.txt",
-  "uploaded_chunks": [210]
-}
-```
-
-### 2. Upload Chunk
-```
-POST /api/v1/upload/chunk
-Content-Type: multipart/form-data
-
-Form fields:
-- upload_id: string
-- chunk_index: string
-- filename: string
-- chunk_hash: string (optional)
-- file: file
+GET /api/v1/upload/chunk?upload_id={upload_id}&filename={filename}&chunk_index={chunk_index}
 ```
 
 **Response:**
 ```json
 {
-  "status": "ok",
-  "upload_id": "test-123",
-  "chunk_index": 1,
-  "filename": "test.txt"
+    "status": "queued",
+    "upload_id": "upload_id",
+    "chunk_index": 1,
+    "filename": "file.filetype",
+    "message": "chunk işleme kuyruğuna alındı"
 }
 ```
 
-### 3. Complete Upload
+### 2. Complete Upload
 ```
 POST /api/v1/upload/complete
 Content-Type: multipart/form-data
@@ -160,6 +139,44 @@ Form fields:
   "status": "ok",
   "message": "Dosya birleştirildi",
   "filename": "test.txt"
+}
+```
+
+### 3. Cancel Upload
+```
+POST /api/v1/upload/cancel
+Content-Type: multipart/form-data
+
+Form fields:
+- upload_id: string
+- filename: string
+```
+
+**Response**
+```json
+{
+    "status": "queued",
+    "message": "Upload iptal edildi"
+}
+```
+
+### 4. Upload Status 
+```
+GET /api/v1/upload/status
+Content-Type: multipart/form-data
+
+Form fields:
+- upload_id: string
+- filename: string
+```
+
+**Response**
+```json
+{
+    "upload_id": "upload_id",
+    "filename": "filename.filetype",
+    "uploaded_chunks": 0,
+    "status": "failed/completed"
 }
 ```
 
@@ -180,7 +197,7 @@ Form fields:
 ## Performans
 
 - Chunk boyutu ayarlanabilir (varsayılan: 10 MB)
-- Paralel upload desteği
+- Paralel upload desteği (worker-redis-server yapısı)
 - Geçici dosyalar otomatik temizlenir
 - Memory-efficient streaming işlemler
-"# file-uploader-v3" 
+"# file-uploader-v2" 
