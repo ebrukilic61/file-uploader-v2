@@ -96,6 +96,7 @@ File-Uploader/
 
 ## Gereksinimler
 - Go 1.21+
+- Redis 8
 
 ## Klasör Konumları
 

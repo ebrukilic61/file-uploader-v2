@@ -17,4 +17,5 @@ func SetupUploadRoutes(app *fiber.App, uploadService usecases.UploadService) {
 	api.Post("/upload/complete", uploadHandler.CompleteUpload)
 	api.Post("/upload/cancel", uploadHandler.CancelUpload)
 	api.Get("/upload/status", uploadHandler.UploadStatus)
+	api.Post("/upload/retry", uploadHandler.RetryMerge)
 }

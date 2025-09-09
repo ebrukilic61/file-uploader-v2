@@ -60,7 +60,8 @@ func ResizeImage(inputPath, outputPath string, options ResizeOption) (string, er
 		return "", err
 	}
 
-	resizedImg := imaging.Fit(img, options.Width, options.Height, imaging.Lanczos)
+	//resizedImg := imaging.Fit(img, options.Width, options.Height, imaging.Lanczos)
+	resizedImg := imaging.Fill(img, options.Width, options.Height, imaging.Center, imaging.Lanczos) //* Tam olarak belirtilen boyutta kırparak resize yapması adına Fit'i Fill ile değiştirdim
 
 	err = imaging.Save(resizedImg, outputPath, imaging.JPEGQuality(options.Quality))
 	if err != nil {
@@ -81,8 +82,8 @@ func ResizeAndSaveMultiple(inputPath, outputDir string, options []ResizeOption) 
 
 	for _, opt := range options {
 		// Oran koruyarak resize
-		resizedImg := imaging.Fit(img, opt.Width, opt.Height, imaging.Lanczos)
-
+		//resizedImg := imaging.Fit(img, opt.Width, opt.Height, imaging.Lanczos)
+		resizedImg := imaging.Fill(img, opt.Width, opt.Height, imaging.Center, imaging.Lanczos)
 		outputPath := filepath.Join(outputDir,
 			fmt.Sprintf("resized_%dx%d_%s", opt.Width, opt.Height, base),
 		)
@@ -98,19 +99,3 @@ func ResizeAndSaveMultiple(inputPath, outputDir string, options []ResizeOption) 
 
 	return savedFiles, nil
 }
-
-// Örnek Kullanım:
-/*
-options := []processor.ResizeOption{
-	{Width: 1000, Height: 1000, Quality: 100},
-	{Width: 800, Height: 800, Quality: 90},
-	{Width: 200, Height: 200, Quality: 80},
-}
-
-savedFiles, err := processor.ResizeAndSaveMultiple("input.jpg", "output/", options)
-if err != nil {
-	fmt.Println("Hata:", err)
-} else {
-	fmt.Println("Oluşturulan dosyalar:", savedFiles)
-}
-*/

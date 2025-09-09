@@ -71,6 +71,21 @@ func Up(tx *sql.Tx) error {
 		return fmt.Errorf("could not create videos table: %w", err)
 	}
 
+	createFailedJobsTable := `
+	CREATE TABLE failed_jobs (
+		id SERIAL PRIMARY KEY,
+		upload_id VARCHAR(255) NOT NULL,
+		job_type VARCHAR(50) NOT NULL,
+		last_error VARCHAR(255) NOT NULL,
+		payload BYTEA NOT NULL,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+		job_status VARCHAR(20) DEFAULT 'failed'
+	);
+	`
+	if _, err := tx.Exec(createFailedJobsTable); err != nil {
+		return fmt.Errorf("could not create failed_jobs table: %w", err)
+	}
+
 	return nil
 }
 

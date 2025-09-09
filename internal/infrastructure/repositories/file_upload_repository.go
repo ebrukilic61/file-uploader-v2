@@ -1,7 +1,9 @@
 package repositories
 
 import (
-	"file-uploader/pkg/file"
+	"database/sql"
+	"errors"
+	fe "file-uploader/pkg/errors"
 	fl "file-uploader/pkg/file"
 	"fmt"
 	"io"
@@ -9,10 +11,14 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 
-	//"strings"
 	"sync"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type FileUploadRepository struct {
@@ -23,18 +29,20 @@ type FileUploadRepository struct {
 	fileMutex    sync.Mutex
 	activeOps    map[string]int
 	opsMutex     sync.Mutex
+	db           *gorm.DB
 }
 
 func (r *FileUploadRepository) UploadsDir() string {
 	return r.uploadsDir
 }
 
-func NewFileUploadRepository(tempDir, uploadsDir string) *FileUploadRepository {
+func NewFileUploadRepository(tempDir, uploadsDir string, db *gorm.DB) *FileUploadRepository {
 	return &FileUploadRepository{
 		tempDir:      tempDir,
 		uploadsDir:   uploadsDir,
 		mergedChunks: make(map[string]int),
 		activeOps:    make(map[string]int),
+		db:           db,
 	}
 }
 
@@ -154,6 +162,7 @@ func (r *FileUploadRepository) ChunkExists(uploadID, filename string, chunkIndex
 }
 
 func (r *FileUploadRepository) SetUploadedChunks(uploadID, filename string, merged int) error {
+	log.Printf("Buraya eriştin, set uploaded chunks")
 	r.chunkMutex.Lock()
 	defer r.chunkMutex.Unlock()
 
@@ -247,11 +256,11 @@ func (r *FileUploadRepository) MergeChunks(uploadID, filename string, totalChunk
 	saveDir := filepath.Join(r.tempDir, uploadID)
 	finalFileName := fl.MakeKey(uploadID, filename)
 	//finalPath := filepath.Join(r.uploadsDir, "media", "original", finalFileName)
-	isImageFile := file.IsImageFile(finalFileName)
+	isImageFile := fl.IsImageFile(finalFileName)
 	finalPath := ""
 	if isImageFile {
 		finalPath = filepath.Join(r.uploadsDir, "media", "original", finalFileName)
-	} else if file.IsVideoFile(finalFileName) {
+	} else if fl.IsVideoFile(finalFileName) {
 		finalPath = filepath.Join(r.uploadsDir, "videos", "original", finalFileName)
 	} else {
 		finalPath = filepath.Join(r.uploadsDir, "other", finalFileName) //* video için de isVideoFile fonksiyonu yazılıp buraya eklenecek!!!
@@ -267,7 +276,7 @@ func (r *FileUploadRepository) MergeChunks(uploadID, filename string, totalChunk
 		}
 	}
 	if len(missing) > 0 {
-		return "", fmt.Errorf("eksik chunk(lar) var: %v", missing) // Return boş string ve error
+		return "", fe.ErrMissingChunk(fmt.Errorf("eksik chunk(lar) var: %v", missing))
 	}
 
 	// uploads klasörünü oluştur
@@ -322,7 +331,7 @@ func (r *FileUploadRepository) MergeChunks(uploadID, filename string, totalChunk
 
 	// Tüm chunk'ların başarıyla merge edilip edilmediğini kontrol et
 	if len(merged) != totalChunks {
-		return "", fmt.Errorf("merge işlemi başarısız: %d/%d chunk merge edildi", len(merged), totalChunks)
+		return "", fe.ErrChunksNotMerged(fmt.Errorf("%d/%d chunk merge edildi", len(merged), totalChunks))
 	}
 
 	// Başarılı chunk'ları kaydet
@@ -336,6 +345,104 @@ func (r *FileUploadRepository) MergeChunks(uploadID, filename string, totalChunk
 	r.cleanupChunkFiles(saveDir, filename, totalChunks)
 
 	return finalPath, nil
+}
+
+func (r *FileUploadRepository) RetryMerge(uploadID, filename string) (string, int, error) {
+	log.Printf("DEBUG! Fonksiyon içindesin")
+	r.incrementActiveOps(uploadID)
+	defer r.decrementActiveOps(uploadID)
+
+	r.fileMutex.Lock()
+	defer r.fileMutex.Unlock()
+
+	saveDir := filepath.Join(r.tempDir, uploadID)
+	finalFileName := fl.MakeKey(uploadID, filename)
+
+	type chunkFile struct {
+		Name  string
+		Index int
+	}
+
+	finalPath := ""
+	if fl.IsImageFile(finalFileName) {
+		finalPath = filepath.Join(r.uploadsDir, "media", "original", finalFileName)
+	} else if fl.IsVideoFile(finalFileName) {
+		finalPath = filepath.Join(r.uploadsDir, "videos", "original", finalFileName)
+	} else {
+		finalPath = filepath.Join(r.uploadsDir, "other", finalFileName)
+	}
+
+	// Temp klasördeki mevcut chunkları listele
+	files, err := os.ReadDir(saveDir)
+	if err != nil {
+		return "", 0, fmt.Errorf("temp klasör okunamadı: %w", err)
+	}
+
+	chunks := make([]chunkFile, 0)
+	for _, f := range files {
+		if !f.IsDir() && strings.HasPrefix(f.Name(), filename) {
+			ext := filepath.Ext(f.Name())
+			indexStr := strings.TrimPrefix(ext, ".part")
+			index, err := strconv.Atoi(indexStr)
+			if err != nil {
+				log.Printf("UYARI: Geçersiz chunk dosyası ismi: %s", f.Name())
+				continue
+			}
+			chunks = append(chunks, chunkFile{Name: f.Name(), Index: index})
+		}
+	}
+
+	sort.Slice(chunks, func(i, j int) bool {
+		return chunks[i].Index < chunks[j].Index
+	})
+
+	if len(chunks) == 0 {
+		return "", 0, fe.ErrMissingChunk(fmt.Errorf("merge için temp chunk bulunamadı"))
+	}
+
+	// uploads klasörünü oluştur
+	if err := os.MkdirAll(filepath.Dir(finalPath), os.ModePerm); err != nil {
+		return "", 0, fmt.Errorf("uploads klasörü oluşturulamadı: %w", err)
+	}
+
+	outFile, err := os.Create(finalPath)
+	if err != nil {
+		return "", 0, fmt.Errorf("final dosya oluşturulamadı: %w", err)
+	}
+	defer outFile.Close()
+
+	merged := 0
+	for _, chunk := range chunks {
+		partPath := filepath.Join(saveDir, chunk.Name)
+		partFile, err := os.Open(partPath)
+		if err != nil {
+			log.Printf("UYARI: Chunk açılamadı %s: %v", chunk.Name, err)
+			continue
+		}
+		bytesWritten, err := io.Copy(outFile, partFile)
+		partFile.Close()
+		if err != nil {
+			log.Printf("UYARI: Chunk kopyalanamadı %s: %v", chunk.Name, err)
+			continue
+		}
+		log.Printf("DEBUG: Chunk %s merged, %d bytes", chunk.Name, bytesWritten)
+		merged++
+	}
+
+	if merged == 0 {
+		return "", 0, fe.ErrChunksNotMerged(fmt.Errorf("hiç chunk merge edilemedi"))
+	}
+
+	r.SetUploadedChunks(uploadID, filename, merged)
+	log.Printf("Set uploaded yapıldı")
+
+	if err := os.RemoveAll(saveDir); err != nil { //bunu düzenlemem lazım
+		log.Printf("UYARI: Temp klasör silinemedi %s: %v", saveDir, err)
+	} else {
+		log.Printf("DEBUG: Temp klasör silindi: %s", saveDir)
+	}
+
+	return finalPath, merged, nil
 }
 
 // Helper function: Chunk dosyalarını temizle
@@ -355,6 +462,52 @@ func (r *FileUploadRepository) cleanupChunkFiles(saveDir, filename string, total
 	}
 }
 
+func (r *FileUploadRepository) SaveFailedUpload(uploadID, filename, jobType string, lastError string, payload []byte) error {
+	query := `
+        INSERT INTO failed_jobs (upload_id, job_type, last_error, payload, created_at)
+        VALUES ($1, $2, $3, $4, NOW())
+    `
+
+	Result := r.db.Exec(query, uploadID, jobType, lastError, payload)
+	if Result.Error != nil {
+		return fmt.Errorf("failed to save failed job: %w", Result.Error)
+	}
+	log.Printf("Başarısız olan job kaydedildi: UploadID=%s, Type=%s", uploadID, jobType)
+	return nil
+}
+
 func (r *FileUploadRepository) TempDir() string {
 	return r.tempDir
+}
+
+func (r *FileUploadRepository) GetFailedUpload(uploadID string) string {
+	var jobType string
+	query := `SELECT job_type FROM failed_jobs WHERE upload_id = $1 ORDER BY created_at`
+	row := r.db.Raw(query, uploadID).Row()
+	if err := row.Scan(&jobType); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ""
+		}
+		log.Printf("UYARI: başarısız job alınırken hata oluştu: %v", err)
+		return ""
+	}
+	return jobType
+}
+
+func (r *FileUploadRepository) DeleteFailedUpload(uploadID string) error {
+	query := `DELETE FROM failed_jobs WHERE upload_id = $1`
+	Result := r.db.Exec(query, uploadID)
+	if Result.Error != nil {
+		return fmt.Errorf("job silinirken hata oluştu: %w", Result.Error)
+	}
+	return nil
+}
+
+func (r *FileUploadRepository) UpdateRetryStatus(uploadID, status string) error {
+	query := `UPDATE failed_jobs SET job_status = $1 WHERE upload_id = $2`
+	Result := r.db.Exec(query, status, uploadID)
+	if Result.Error != nil {
+		return fmt.Errorf("job status güncellenirken hata oluştu: %w", Result.Error)
+	}
+	return nil
 }

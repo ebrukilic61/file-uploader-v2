@@ -81,9 +81,10 @@ func (h *MediaHandler) GetAllMedia(c *fiber.Ctx) error {
 }
 
 func (h *MediaHandler) CreateSize(c *fiber.Ctx) error {
-	var size dto.MediaSize
-	if err := c.BodyParser(&size); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request"})
+	size := dto.MediaSize{
+		VariantType: c.Query("variant_type"),
+		Width:       c.QueryInt("width"),
+		Height:      c.QueryInt("height"),
 	}
 	if err := h.repo.CreateSize(&size); err != nil {
 		fmt.Println("db insert error: ", err)
@@ -93,9 +94,10 @@ func (h *MediaHandler) CreateSize(c *fiber.Ctx) error {
 }
 
 func (h *MediaHandler) UpdateSize(c *fiber.Ctx) error {
-	var size dto.MediaSize
-	if err := c.BodyParser(&size); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request"})
+	size := dto.MediaSize{
+		VariantType: c.Query("variant_type"),
+		Width:       c.QueryInt("width"),
+		Height:      c.QueryInt("height"),
 	}
 	if err := h.repo.UpdateSize(&size); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "media boyutu güncellenemedi"})
@@ -148,27 +150,6 @@ func (h *MediaHandler) ResizeByHeight(c *fiber.Ctx) error {
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
-
-/*
-func (h *MediaHandler) ResizeVideo(c *fiber.Ctx) error {
-	id := c.Params("video_id")
-	var req struct {
-		Width  int64 `json:"width"`
-		Height int64 `json:"height"`
-	}
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request"})
-	}
-	video, err := h.repo.GetVideoByID(id)
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "video not found"})
-	}
-	if err := h.repo.ResizeVideo(id, req.Width, req.Height, video); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to resize video"})
-	}
-	return c.SendStatus(fiber.StatusNoContent)
-}
-*/
 
 func (h *MediaHandler) ResizeVideo(c *fiber.Ctx) error {
 	id := c.Params("video_id")

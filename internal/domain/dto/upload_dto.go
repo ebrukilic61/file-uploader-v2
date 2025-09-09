@@ -13,6 +13,11 @@ type CompleteUploadRequestDTO struct {
 	Filename    string `json:"filename" form:"filename"`
 }
 
+type CompleteRetryRequest struct {
+	UploadID string `json:"upload_id" form:"upload_id"`
+	Filename string `json:"filename" form:"filename"`
+}
+
 type UploadStatusRequestDTO struct {
 	UploadID string `json:"upload_id" form:"upload_id"`
 	Filename string `json:"filename" form:"filename"`

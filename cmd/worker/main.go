@@ -10,10 +10,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"file-uploader/internal/infrastructure/db"
 	"file-uploader/internal/infrastructure/queue"
 	infra_repo "file-uploader/internal/infrastructure/repositories"
 	"file-uploader/internal/usecases"
 	"file-uploader/pkg/config"
+	"file-uploader/pkg/constants"
 	fe "file-uploader/pkg/errors"
 	fl "file-uploader/pkg/file"
 
@@ -36,8 +38,25 @@ func main() {
 		Addr: fmt.Sprintf("%s:%s", redisHost, redisPort),
 	})
 
-	fileRepo := infra_repo.NewFileUploadRepository(cfg.Upload.TempDir, cfg.Upload.UploadsDir)
+	db, err := db.NewPostgresDB()
+	if err != nil {
+		log.Fatal("DB bağlantısı kurulamadı:", err)
+	}
+	log.Println("DB bağlantısı başarılı!")
 
+	fileRepo := infra_repo.NewFileUploadRepository(cfg.Upload.TempDir, cfg.Upload.UploadsDir, db)
+
+	// cleanup içerisinde yazıldı cron job için
+	cleanupUC := usecases.NewCleanupService(fileRepo)
+	c := cron.New(cron.WithSeconds())
+
+	c.AddFunc("0 0 * * * *", func() { // her saat başı çalışır
+		log.Println("Running scheduled cleanup of old temp files...")
+		if err := cleanupUC.CleanupOldTempFiles(2 * time.Hour); err != nil { // 2 saatten eski temp dosyaları siler
+			log.Printf("Error cleaning up old temp files: %v", err)
+		}
+	})
+	c.Start() // cron job'u başlatmak için
 	// BRPOP loop to process jobs
 	for {
 		val, err := rdb.BRPop(ctx, 0, "job_queue").Result()
@@ -57,23 +76,14 @@ func main() {
 			processChunk(job, fileRepo)
 		case queue.JobMerge:
 			processMerge(job, fileRepo, rdb, ctx)
+		case queue.JobRetry: //* process retry job'a düşünce burası işlenecek
+			processRetryMerge(job, fileRepo, rdb, ctx)
 		case queue.JobCleanup:
 			processCleanup(job, fileRepo)
 		default:
 			log.Println("Unknown job type:", job.Type)
 		}
 	}
-
-	cleanupUC := usecases.NewCleanupService(fileRepo) // cleanup içerisinde yazıldı cron job için
-	c := cron.New(cron.WithSeconds())
-
-	c.AddFunc("0 0 * * * *", func() { // her saat başı çalışır
-		log.Println("Running scheduled cleanup of old temp files...")
-		if err := cleanupUC.CleanupOldTempFiles(2 * time.Hour); err != nil { // 2 saatten eski temp dosyaları siler
-			log.Printf("Error cleaning up old temp files: %v", err)
-		}
-	})
-	c.Start() // cron job'u başlatmak için
 }
 
 func processChunk(job *queue.Job, repo *infra_repo.FileUploadRepository) {
@@ -112,7 +122,7 @@ func processChunk(job *queue.Job, repo *infra_repo.FileUploadRepository) {
 func processMerge(job *queue.Job, repo *infra_repo.FileUploadRepository, rdb *redis.Client, ctx context.Context) {
 	//* exponential backoff ile merge işlemi gerçekleştirildi
 	const maxRetries = 5
-	retryDelay := 2 * time.Second // her tekrar deneme arasında 2 saniye beklenecek
+	retryDelay := 1 * time.Second
 
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
@@ -125,12 +135,13 @@ func processMerge(job *queue.Job, repo *infra_repo.FileUploadRepository, rdb *re
 
 	for i := 0; i < maxRetries; i++ {
 		mergedFilePath, err = repo.MergeChunks(job.UploadID, job.Filename, job.TotalChunks)
+		backoff := time.Duration(retryDelay << i) // Exponential backoff
 		if err != nil {
 			var uploadErr *fe.UploadError
 			if errors.As(err, &uploadErr) && uploadErr.Code == "missing_chunk" {
-				log.Printf("Eksik chunk hatası, %d/%d tekrar %v saniye sonra...", i+1, maxRetries, retryDelay)
-				time.Sleep(retryDelay)
-				retryDelay *= 2 // Exponential backoff
+				job.LastError = err.Error()
+				log.Printf("Eksik chunk hatası, %d/%d tekrar %v saniye sonra...", i+1, maxRetries, backoff)
+				time.Sleep(backoff)
 				continue
 			} else {
 				log.Printf("Merge işlemi yapılamadı %s: %v", job.Filename, err)
@@ -144,6 +155,34 @@ func processMerge(job *queue.Job, repo *infra_repo.FileUploadRepository, rdb *re
 
 	if err != nil {
 		log.Printf("Merge işlemi başarısız oldu %s: %v", job.Filename, err)
+		job.LastError = err.Error()
+		payload := []byte{}
+		if p, marshalErr := json.Marshal(job); marshalErr == nil {
+			payload = p
+		} else {
+			log.Printf("failed merge işlemi için job verisi oluşturulamadı: %v", marshalErr)
+		}
+		if saveErr := repo.SaveFailedUpload(job.UploadID, job.Filename, string(job.Type), err.Error(), payload); saveErr != nil {
+			log.Printf("failed upload kaydı yapılamadı: %v", saveErr)
+		}
+
+		if job.RetryCount < constants.MaxRetryJobs {
+			retryJob := queue.Job{
+				UploadID:   job.UploadID,
+				Filename:   job.Filename,
+				Type:       queue.JobRetry,
+				RetryCount: job.RetryCount + 1,
+			}
+			retryPayload, _ := json.Marshal(retryJob)
+			err := rdb.LPush(ctx, "job_queue", retryPayload)
+			if err != nil {
+				log.Printf("retry job queue'ya eklenemedi: %v / RetryCount: %d", err, retryJob.RetryCount)
+			} else {
+				log.Printf("Otomatik retry yapılarak job queue'ya eklendi: %s (RetryCount: %d tamamlandı)", job.Filename, retryJob.RetryCount)
+			}
+		} else {
+			log.Printf("Max retry sayısına ulaşıldı, retry yapılmayacak: %s", job.Filename)
+		}
 		return
 	}
 
@@ -153,6 +192,31 @@ func processMerge(job *queue.Job, repo *infra_repo.FileUploadRepository, rdb *re
 		Filename:       job.Filename,
 		MergedFilePath: mergedFilePath,
 		TotalChunks:    job.TotalChunks,
+	}
+	serialized, err := json.Marshal(processed)
+	if err != nil {
+		log.Printf("Failed to serialize processed job %s: %v", job.Filename, err)
+		return
+	}
+	rdb.LPush(ctx, "processed_queue", serialized)
+	log.Printf("Processed job pushed to processed_queue: %s", job.Filename)
+}
+
+func processRetryMerge(job *queue.Job, repo *infra_repo.FileUploadRepository, rdb *redis.Client, ctx context.Context) {
+	log.Printf("Processing retry merge for file %s (UploadID: %s)", job.Filename, job.UploadID)
+	finalPath, totalChunks, err := repo.RetryMerge(job.UploadID, job.Filename)
+	if err != nil {
+		log.Printf("Retry merge failed for %s: %v", job.Filename, err)
+		return
+	}
+	log.Printf("Retry merge succeeded for %s: %s", job.Filename, finalPath)
+
+	// Push to processed queue for callback
+	processed := queue.ProcessedJob{
+		UploadID:       job.UploadID,
+		Filename:       job.Filename,
+		MergedFilePath: finalPath,
+		TotalChunks:    totalChunks,
 	}
 	serialized, err := json.Marshal(processed)
 	if err != nil {

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"strconv"
 
 	"file-uploader/internal/domain/dto"
@@ -98,6 +99,7 @@ func (h *UploadHandler) UploadChunk(c *fiber.Ctx) error {
 			Error: err.Error(),
 		})
 	}
+	log.Printf("DEBUG: Received chunk: uploadID=%s, filename=%s, chunkIndex=%s", req.UploadID, req.Filename, req.ChunkIndex)
 
 	return c.JSON(response)
 }
@@ -168,4 +170,42 @@ func (h *UploadHandler) CancelUpload(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(resp)
+}
+
+func (h *UploadHandler) RetryMerge(c *fiber.Ctx) error {
+	var req dto.CompleteRetryRequest
+
+	// BodyParser ile:
+	if err := c.BodyParser(&req); err != nil {
+		log.Printf("BodyParser error: %v", err)
+	}
+
+	// Eğer body boşsa query’den alalım:
+	if req.UploadID == "" {
+		req.UploadID = c.Query("upload_id")
+	}
+	if req.Filename == "" {
+		req.Filename = c.Query("filename")
+	}
+
+	log.Printf("DEBUG: Retry request: %+v", req)
+
+	if req.UploadID == "" || req.Filename == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(dto.ErrorResponse{
+			Error: "upload_id veya filename eksik",
+		})
+	}
+
+	finalPath, err := h.uploadService.RetryMerge(req.UploadID, req.Filename)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(dto.ErrorResponse{
+			Error: err.Error(),
+		})
+	} else {
+		log.Printf("INFO: Retry merge işlemi başarıyla gerçekleşti: %s, dosya: %s", req.UploadID, req.Filename)
+	}
+
+	return c.JSON(fiber.Map{
+		"merged_file": finalPath,
+	})
 }

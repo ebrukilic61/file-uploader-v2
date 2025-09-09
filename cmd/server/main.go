@@ -11,6 +11,7 @@ import (
 	"time"
 
 	_ "file-uploader/docs"
+	_ "file-uploader/migrations"
 
 	"file-uploader/pkg/config"
 	consts "file-uploader/pkg/constants"
@@ -21,8 +22,6 @@ import (
 	infra_repo "file-uploader/internal/infrastructure/repositories"
 	"file-uploader/internal/infrastructure/storage"
 	"file-uploader/internal/usecases"
-
-	_ "file-uploader/migrations"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
@@ -54,7 +53,7 @@ func main() {
 	}
 
 	if os.Getenv("RUN_AUTO_MIGRATION") == "true" {
-		if err := goose.Up(sqlDB, "."); err != nil {
+		if err := goose.Up(sqlDB, "../../migrations"); err != nil {
 			log.Fatalf("failed to apply migrations: %v", err)
 		}
 	}
@@ -74,7 +73,7 @@ func main() {
 	app.Get("/swagger/*", swagger.HandlerDefault)
 
 	// Repositories & Services
-	fileRepo := infra_repo.NewFileUploadRepository(cfg.Upload.TempDir, cfg.Upload.UploadsDir)
+	fileRepo := infra_repo.NewFileUploadRepository(cfg.Upload.TempDir, cfg.Upload.UploadsDir, database)
 	localStorage := storage.NewLocalStorage(cfg.Upload.UploadsDir)
 	mediaRepo := infra_repo.NewMediaRepository(database)
 	variantRepo := infra_repo.NewMediaVariantRepository(database)

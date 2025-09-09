@@ -27,33 +27,22 @@ type UploadService interface {
 	CompleteUpload(req *dto.CompleteUploadRequestDTO) (*dto.CompleteUploadResponse, error)
 	CancelUpload(req *dto.CancelUploadRequestDTO) (*dto.CancelUploadResponse, error)
 	HandleMergeSuccess(uploadID, filename, mergedFilePath string, totalChunks int) error
-	//Shutdown() // worker pool'u kapatmak için
+	RetryMerge(uploadID, filename string) (string, error)
 }
 
 type uploadService struct { //* sadece jobları kuyruğa atacak
-	repo    repositories.FileUploadRepository
-	storage repositories.StorageStrategy
-	mu      sync.Mutex
-	//workerPool   *queue.WorkerPool
+	repo         repositories.FileUploadRepository
+	storage      repositories.StorageStrategy
+	mu           sync.Mutex
 	rdb          *redis.Client
 	mediaService MediaService
 }
 
 func NewUploadService(repo repositories.FileUploadRepository, storage repositories.StorageStrategy, rdb *redis.Client, mediaService MediaService) UploadService {
-	/*
-		workerCount := 5
-		if val, ok := os.LookupEnv("WORKER_POOL_SIZE"); ok {
-			if wc, err := strconv.Atoi(val); err == nil {
-				workerCount = wc
-			}
-		}
-	*/
-	//workerPool := queue.NewWorkerPool(workerCount, repo) // 5 worker ile başlatalım
 	return &uploadService{
-		repo:    repo,
-		storage: storage,
-		mu:      sync.Mutex{}, //sonradan ekledim
-		//workerPool:   workerPool,
+		repo:         repo,
+		storage:      storage,
+		mu:           sync.Mutex{}, //sonradan ekledim
 		rdb:          rdb,
 		mediaService: mediaService,
 	}
@@ -116,11 +105,10 @@ func (s *uploadService) UploadChunk(req *dto.UploadChunkRequestDTO, fileHeader *
 	}
 
 	chunkJob := queue.Job{
-		UploadID:   req.UploadID,
-		Type:       queue.JobSaveChunk,
-		Filename:   safeFilename,
-		ChunkIndex: idx,
-		//FilePath:   chunkPath,
+		UploadID:    req.UploadID,
+		Type:        queue.JobSaveChunk,
+		Filename:    safeFilename,
+		ChunkIndex:  idx,
 		FileContent: fileBytes,
 		ChunkHash:   req.ChunkHash,
 	}
@@ -154,7 +142,6 @@ func (s *uploadService) CompleteUpload(req *dto.CompleteUploadRequestDTO) (*dto.
 		TotalChunks: req.TotalChunks,
 	}
 
-	//s.workerPool.AddJob(mergeJob)
 	serialized, err := json.Marshal(mergeJob)
 	if err != nil {
 		log.Printf("Merge job marshal failed: %v", err)
@@ -192,7 +179,6 @@ func (s *uploadService) CancelUpload(req *dto.CancelUploadRequestDTO) (*dto.Canc
 		Type:     queue.JobCleanup,
 	}
 
-	//s.workerPool.AddJob(cleanupJob)
 	serialized, _ := json.Marshal(cleanupJob)
 	s.rdb.LPush(context.Background(), "job_queue", serialized)
 
@@ -202,11 +188,26 @@ func (s *uploadService) CancelUpload(req *dto.CancelUploadRequestDTO) (*dto.Canc
 	}, nil
 }
 
-/*
-// Shutdown worker pool
-func (s *uploadService) Shutdown() {
-	if s.workerPool != nil {
-		s.workerPool.Shutdown()
+func (s *uploadService) RetryMerge(uploadID, filename string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	finalPath, merged, err := s.repo.RetryMerge(uploadID, filename)
+	if err != nil {
+		log.Printf("Retry merge işlemi dosya %s için başarısız oldu: %v", filename, err)
+		return "", err
 	}
+	log.Printf("Retry merge işlemi dosya %s için başarıyla gerçekleşti: %s", filename, finalPath)
+
+	if err := s.HandleMergeSuccess(uploadID, filename, finalPath, merged); err != nil {
+		log.Printf("Merge'den sonra verinin işlenmesi başarıyla gerçekleşti %s: %v", filename, err)
+		return finalPath, err
+	}
+
+	if err := s.repo.UpdateRetryStatus(uploadID, consts.StatusUploaded); err != nil {
+		log.Printf("Retry job status güncellenirken hata oluştu: %v", err)
+		return finalPath, err
+	}
+
+	return finalPath, nil
 }
-*/
