@@ -13,7 +13,7 @@ import (
 
 func SetupMediaRoutes(app *fiber.App, cfg *config.Config, database *gorm.DB) {
 	mediaRepo := infra_repo.NewMediaRepository(database)
-	variantRepo := infra_repo.NewMediaVariantRepository(database)
+	variantRepo := infra_repo.NewMediaVariantRepository(database, mediaRepo)
 	sizeRepo := infra_repo.NewMediaSizeRepository(database)
 
 	// Storage

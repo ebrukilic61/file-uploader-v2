@@ -15,6 +15,14 @@ func GetMimeTypeFromExtension(filename string) string {
 		return "image/jpeg"
 	case ".gif":
 		return "image/gif"
+	case ".bmp":
+		return "image/bmp"
+	case ".tif", ".tiff":
+		return "image/tiff"
+	case ".webp":
+		return "image/webp"
+	case ".svg":
+		return "image/svg+xml"
 	case ".mp4":
 		return "video/mp4"
 	case ".avi":
@@ -46,7 +54,7 @@ func GetVideoDimensions(filePath string) (int64, int64, error) {
 
 func IsImageFile(filename string) bool {
 	ext := strings.ToLower(filepath.Ext(filename))
-	imageExtensions := []string{".png", ".jpg", ".jpeg", ".gif"}
+	imageExtensions := []string{".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tif", ".webp", ".svg", ".tiff"}
 
 	for _, imgExt := range imageExtensions {
 		if ext == imgExt {

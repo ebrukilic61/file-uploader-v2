@@ -76,7 +76,7 @@ func main() {
 	fileRepo := infra_repo.NewFileUploadRepository(cfg.Upload.TempDir, cfg.Upload.UploadsDir, database)
 	localStorage := storage.NewLocalStorage(cfg.Upload.UploadsDir)
 	mediaRepo := infra_repo.NewMediaRepository(database)
-	variantRepo := infra_repo.NewMediaVariantRepository(database)
+	variantRepo := infra_repo.NewMediaVariantRepository(database, mediaRepo)
 	sizeRepo := infra_repo.NewMediaSizeRepository(database)
 	videoRepo := infra_repo.NewVideoRepository(database)
 	mediaService := usecases.NewMediaService(mediaRepo, variantRepo, sizeRepo, localStorage, videoRepo)

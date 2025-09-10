@@ -64,7 +64,7 @@ func NewMediaService(
 // Images
 func (u *mediaService) CreateMedia(media *dto.ImageDTO, finalPath string) error {
 	// İş mantığı: desteklenen dosya tiplerini kontrol et
-	if media.FileType != "image/png" && media.FileType != "image/jpeg" && media.FileType != "image/jpg" && media.FileType != "image/gif" {
+	if media.FileType != "image/png" && media.FileType != "image/jpeg" && media.FileType != "image/jpg" && media.FileType != "image/gif" && media.FileType != "image/bmp" && media.FileType != "image/tiff" && media.FileType != "image/webp" && media.FileType != "image/svg+xml" {
 		return fmt.Errorf("unsupported file type: %s", media.FileType)
 	}
 	// DTO’da storage pathini güncelle
@@ -89,10 +89,6 @@ func (s *mediaService) GetMediaByID(id string) (*dto.ImageDTO, error) {
 }
 
 func (s *mediaService) UpdateMediaStatus(id string, status string) error {
-	validStatuses := []string{"active", "inactive", "deleted"}
-	if !contains(validStatuses, status) {
-		return fmt.Errorf("invalid status: %s", status)
-	}
 	return s.mediaRepo.UpdateMediaStatus(id, status)
 }
 
@@ -147,7 +143,7 @@ func (s *mediaService) CreateVariantsForMedia(mediaID, originalPath string) erro
 		}
 
 		// DB’ye kaydet
-		if err := s.variantRepo.CreateVariant(variant); err != nil {
+		if err := s.variantRepo.CreateVariant(variant, s.mediaRepo); err != nil {
 			return fmt.Errorf("media varyantı oluşturulamadı: %w", err)
 		}
 	}
@@ -240,7 +236,6 @@ func (s *mediaService) ResizeByHeight(id string, height int64, video *dto.VideoD
 		OriginalName: video.OriginalName,
 		FileType:     video.FileType,
 	}
-
 	return s.videoRepo.ResizeHeight(&entity)
 }
 

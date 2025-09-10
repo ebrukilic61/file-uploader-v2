@@ -4,6 +4,8 @@ import (
 	"file-uploader/internal/domain/dto"
 	"file-uploader/internal/domain/entities"
 	"file-uploader/internal/domain/repositories"
+	"file-uploader/pkg/constants"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,18 +13,47 @@ import (
 )
 
 type mediaVariantRepository struct {
-	db *gorm.DB
+	db        *gorm.DB
+	mediaRepo repositories.MediaRepository
 }
 
-func NewMediaVariantRepository(db *gorm.DB) repositories.MediaVariantRepository {
+func NewMediaVariantRepository(db *gorm.DB, mediaRepo repositories.MediaRepository) repositories.MediaVariantRepository {
 	return &mediaVariantRepository{
-		db: db,
+		db:        db,
+		mediaRepo: mediaRepo,
 	}
 }
 
-func (r *mediaVariantRepository) CreateVariant(dtoVariant *dto.MediaVariant) error {
+func (r *mediaVariantRepository) CreateVariant(dtoVariant *dto.MediaVariant, _ repositories.MediaRepository) error {
 	entity := r.dtoToEntity(dtoVariant)
 	if err := r.db.Create(entity).Error; err != nil {
+		log.Printf("Medya için varyant oluşturulamadı: %v", err)
+		log.Printf("media ID %s için tekrar varyant oluşturulmaya başlanıyor...", dtoVariant.MediaID)
+		if retryErr := r.RetryCreateVariant(dtoVariant); retryErr != nil {
+			log.Printf("media ID %s için varyant oluşturma işlemi başarısız oldu: %v", dtoVariant.MediaID, retryErr)
+			return retryErr
+		}
+		return err
+	}
+	r.mediaRepo.UpdateMediaStatus(dtoVariant.MediaID, constants.StatusProcessed)
+	*dtoVariant = *r.entityToDTO(entity)
+	return nil
+}
+
+func (r *mediaVariantRepository) RetryCreateVariant(dtoVariant *dto.MediaVariant) error {
+	entity := r.dtoToEntity(dtoVariant)
+	if err := r.db.Create(entity).Error; err != nil {
+		retryDelay := 1 * time.Second
+		// eğer create işlemi başarısız olursa 3 defa exponential olarak deneme gerçekleşsin
+		for i := 0; i < 3; i++ {
+			if err := r.db.Create(entity).Error; err == nil {
+				backoff := time.Duration(retryDelay << i)
+				time.Sleep(backoff)
+				log.Printf("Retry %d: Successfully created variant after backoff of %v", i+1, backoff)
+				*dtoVariant = *r.entityToDTO(entity)
+				return nil
+			}
+		}
 		return err
 	}
 	*dtoVariant = *r.entityToDTO(entity)

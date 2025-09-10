@@ -16,7 +16,9 @@ type MediaRepository interface {
 }
 
 type MediaVariantRepository interface {
-	CreateVariant(variant *dto.MediaVariant) error
+	//CreateVariant(variant *dto.MediaVariant) error
+	CreateVariant(dtoVariant *dto.MediaVariant, repo MediaRepository) error
+	RetryCreateVariant(variant *dto.MediaVariant) error
 	GetVariantByID(id string) (*dto.MediaVariant, error)
 	UpdateVariant(variant *dto.MediaVariant) error
 	DeleteVariant(id string) error

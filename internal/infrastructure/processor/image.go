@@ -23,6 +23,7 @@ type MediaService interface {
 	CreateVariantsForMedia(mediaID string, filePath string) error
 	CreateVideo(video *dto.VideoDTO) error
 	ResizeVideo(videoID string, width int64, height int64, video *dto.VideoDTO) error
+	UpdateMediaStatus(id string, status string) error
 }
 
 // Image işle

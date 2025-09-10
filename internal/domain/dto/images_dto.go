@@ -19,6 +19,7 @@ type MediaVariant struct {
 	Width       int    `json:"width"`
 	Height      int    `json:"height"`
 	FilePath    string `json:"file_path"`
+	//Status      string `json:"status"`
 }
 
 type MediaSize struct {
